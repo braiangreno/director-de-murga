@@ -14,6 +14,8 @@ import { parseCosmetics, memberAppearance, dressEnsemble } from './cosmetics-sta
 import { openWardrobeViewer } from './wardrobe-viewer';
 import { recruitmentPanel, costumePanel, researchPanel, fameLabel, type MarketFilters } from './management-panels';
 import { communityPanel, decisionPanel } from './community-panel';
+import { careerPanel, identityPanel } from './career-panel';
+import { setIdentity, validateIdentity } from './simulation';
 import { contactCandidate, resolveDecision, getPendingDecision, getCommunitySummary } from './simulation';
 import { scoutMember, nextSeason, getSeasonRenewalCost, getMemberReport, getRecruitmentAvailability, getCostumeProposals, chooseCostumeProposal, TOTAL_DAYS, REHEARSALS_START_DAY } from './simulation';
 import { createGame, performAction, recruit, assignCord, buyUpgrade, buyLicense, getStats, getCalendar, getActionPreview, getActionAvailability, getContestSummary, getStandings, getUpgradeCost, parseSave, refreshCandidates, hireCreative, startSeason, revealEliminatedFallos, getProductionSummary, CREATIVE_ROLES, CREATIVE_ROLE_LABELS, CREATIVE_CANDIDATES, MEMBER_ROLE_LABELS, CORDS, EVENTS, MAX_UPGRADE, type State, type Action, type Upgrade, type CreativeRole, type Member } from './simulation';
@@ -48,9 +50,9 @@ const icon = (name: string) => `<svg class="icon" viewBox="0 0 24 24" fill="none
 const money = (n: number) => '$ ' + Math.round(n).toLocaleString('es-UY');
 const escape = (s: string) => s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 const signed = (n:number, suffix='') => `${n > 0 ? '+' : ''}${Math.round(n)}${suffix}`;
-const KEY = 'director-de-murga-v5';
+const KEY = 'director-de-murga-v6';
 const WARDROBE_KEY = 'director-de-murga-character-system-v1';
-const LEGACY_KEYS = ['director-de-murga-v4', 'director-de-murga-v3', 'director-de-murga-v2', 'director-de-murga-v1'];
+const LEGACY_KEYS = ['director-de-murga-v5', 'director-de-murga-v4', 'director-de-murga-v3', 'director-de-murga-v2', 'director-de-murga-v1'];
 const CREATIVE_DETAILS: Record<CreativeRole, {icon: string; brief: string; effect: string}> = {
   lyrics: {icon: 'book', brief: 'Encontrá la voz de tu espectáculo: humor, crítica y una historia para cantar.', effect: 'Aporta calidad a los textos.'},
   arrangements: {icon: 'music', brief: 'Transformá las melodías en un coro que emocione y se entienda con la batería.', effect: 'Mejora voces y arreglos, y la coordinación musical.'},
@@ -111,7 +113,7 @@ async function boot() {
   let scene: MurgaScene | undefined, saveQueue = Promise.resolve(), toastTimer: ReturnType<typeof setTimeout>;
   document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
     <header class="topbar"><a class="brand" href="#" aria-label="Director de Murga, inicio"><span class="brand-mark">${icon('mask')}</span><span>DIRECTOR<span class="brand-small">DE MURGA</span></span></a><div class="resources" id="resources"></div><button class="icon-button help-button" data-open="help" aria-label="Cómo jugar">${icon('help')}</button></header>
-    <main class="game"><section class="world"><div class="world-heading"><div class="eyebrow"><span class="live-dot"></span> CARNAVAL · MONTEVIDEO</div><h1>Que el barrio<br><em>vuelva a cantar.</em></h1><p>Tu murga. Tu historia. Tu carnaval.</p></div><div id="scene" class="scene"></div><div class="world-caption"><span class="caption-line"></span><span>LA VEREDA<br><small>Tu sede, tu punto de partida</small></span><span class="scene-stamp">EST. 2026</span></div><div class="scene-notice" id="scene-notice" hidden>Vista 3D no disponible. Podés seguir jugando con los controles.</div></section>
+    <main class="game"><section class="world"><div class="world-heading"><div class="eyebrow"><span class="live-dot"></span> CARNAVAL · MONTEVIDEO</div><h1>Que el barrio<br><em>vuelva a cantar.</em></h1><p>Tu murga. Tu historia. Tu carnaval.</p></div><div id="scene" class="scene"></div><div class="world-caption"><span class="caption-line"></span><span><span id="murga-name">La Vereda</span><br><small>Tu sede, tu punto de partida</small></span><span class="scene-stamp">EST. 2026</span></div><div class="scene-notice" id="scene-notice" hidden>Vista 3D no disponible. Podés seguir jugando con los controles.</div></section>
     <aside class="desk" id="desk" aria-label="Gestión de la murga"></aside></main>
     <nav class="bottom-nav" aria-label="Secciones del juego"><button class="selected" data-open="sede">${icon('mask')}<span>La sede</span></button><button data-open="plantel">${icon('people')}<span>El plantel</span><b>17</b></button><button data-open="taller">${icon('star')}<span>El taller</span></button><button data-open="comunidad">${icon('people')}<span>El barrio</span></button><button data-open="agenda">${icon('calendar')}<span>La temporada</span></button></nav>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -195,7 +197,7 @@ async function boot() {
     const production = getProductionSummary(state);
     return `<div class="season-heading"><span>TEMPORADA ${state.season}</span><span>ABRIL · ARMADO</span></div>
       <div class="production-intro"><span>${icon('star')}</span><div><h2>Armá tu<br><em>espectáculo.</em></h2><p>Empezamos en abril. Convencé integrantes y elegí el equipo que va a preparar el espectáculo desde el invierno.</p></div></div>
-      <div class="production-progress"><strong>${production.hired} de ${production.required} oficios contratados</strong><div>${CREATIVE_ROLES.map(role => `<span class="${state.creativeTeam[role] ? 'done' : ''}"></span>`).join('')}</div></div>
+      <button class="text-button identity-shortcut" data-open="identidad">${icon('mask')} Tu murga · ${escape(state.identity.name)} ${icon('arrow')}</button><div class="production-progress"><strong>${production.hired} de ${production.required} oficios contratados</strong><div>${CREATIVE_ROLES.map(role => `<span class="${state.creativeTeam[role] ? 'done' : ''}"></span>`).join('')}</div></div>
       <div class="production-list">${production.team.map(({role, label, candidate}) => `<button class="production-slot ${candidate ? 'filled' : ''}" data-choose-role="${role}"><span class="slot-icon">${icon(CREATIVE_DETAILS[role].icon)}</span><span class="slot-copy"><strong>${label}</strong><small>${candidate ? `${escape(candidate.name)} · ${money(candidate.fee)}` : 'Compará 3 perfiles y elegí'}</small></span><span class="slot-state">${icon(candidate ? 'check' : 'arrow')}</span></button>`).join('')}</div>
       <button class="outline-button team-summary" data-open="fichajes">${icon('people')} Buscar integrantes · ${state.candidates.length} perfiles ${icon('arrow')}</button><button class="outline-button team-summary" data-open="vestuario">${icon('shirt')} Propuestas de vestuario ${icon('arrow')}</button>
       ${productionBudget()}
@@ -205,7 +207,7 @@ async function boot() {
   }
   function productionPanel() {
     const production = getProductionSummary(state);
-    if (state.productionStarted) return `<div class="creative-brief"><h3>El equipo detrás del espectáculo</h3><p>Estos cinco oficios acompañan a La Vereda durante toda la temporada. Sus aportes ya se aplican a la preparación.</p></div><div class="team-roster">${production.team.map(({role,label,candidate}) => `<article class="production-slot filled"><span class="slot-icon">${icon(CREATIVE_DETAILS[role].icon)}</span><span class="slot-copy"><small>${label} · ${candidate?.level}</small><strong>${escape(candidate?.name ?? '')}</strong><small>${CREATIVE_DETAILS[role].effect}</small></span><span class="slot-state">${icon('check')}</span></article>`).join('')}</div>${productionBudget()}<p class="fineprint">Honorarios ya abonados. Elegís un equipo nuevo al comenzar otra temporada. El director escénico del elenco y el responsable técnico de puesta cumplen funciones distintas en el juego.</p>`;
+    if (state.productionStarted) return `<div class="creative-brief"><h3>El equipo detrás del espectáculo</h3><p>Estos cinco oficios acompañan a ${escape(state.identity.name)} durante toda la temporada. Sus aportes ya se aplican a la preparación.</p></div><div class="team-roster">${production.team.map(({role,label,candidate}) => `<article class="production-slot filled"><span class="slot-icon">${icon(CREATIVE_DETAILS[role].icon)}</span><span class="slot-copy"><small>${label} · ${candidate?.level}</small><strong>${escape(candidate?.name ?? '')}</strong><small>${CREATIVE_DETAILS[role].effect}</small></span><span class="slot-state">${icon('check')}</span></article>`).join('')}</div>${productionBudget()}<p class="fineprint">Honorarios ya abonados. Elegís un equipo nuevo al comenzar otra temporada. El director escénico del elenco y el responsable técnico de puesta cumplen funciones distintas en el juego.</p>`;
     const selected = CREATIVE_CANDIDATES.find(c => c.id === state.creativeTeam[creativeRole]);
     const currentIndex = CREATIVE_ROLES.indexOf(creativeRole);
     const remainingRole = CREATIVE_ROLES.find(role => !state.creativeTeam[role]);
@@ -227,7 +229,10 @@ async function boot() {
     document.querySelector<HTMLElement>('.world')!.dataset.venue = theatreVisible ? 'theatre' : actualVenue;
     document.querySelector('.world-heading h1')!.innerHTML = theatreVisible ? 'Teatro de Verano<br><em>Ramón Collazo.</em>' : !state.productionStarted ? 'Una idea.<br><em>Todo un carnaval.</em>' : calendar.tabladosOpen ? 'Ahora sí,<br><em>salimos a cantar.</em>' : 'El carnaval empieza<br><em>en el ensayo.</em>';
     document.querySelector('.world-heading p')!.textContent = theatreVisible ? theatrePreview && actualVenue !== 'theatre' ? 'Una visita al escenario. Tu temporada sigue en el mismo punto.' : `${calendar.eventName ?? 'Concurso Oficial'} · llegó la noche de cantar.` : !state.productionStarted ? 'Letra, música y color. Tu historia empieza con un equipo.' : calendar.tabladosOpen ? 'El concurso y los tablados, dos agendas distintas.' : 'Coro, batería y dirección preparando el espectáculo.';
+    document.querySelector('#murga-name')!.textContent = state.identity.name;
     document.querySelector('.world-caption small')!.textContent = theatreVisible ? theatrePreview && actualVenue !== 'theatre' ? 'Vista del teatro · sin avanzar la temporada' : 'Concurso Oficial · Teatro de Verano' : calendar.tabladosOpen ? 'Tablado al aire libre' : 'Patio de ensayo · al aire libre';
+    const caption = document.querySelector('.world-caption small')!;
+    caption.textContent = `${state.identity.barrio} · ${caption.textContent}`;
     const venueButton = document.querySelector<HTMLButtonElement>('[data-visit-theatre]')!;
     venueButton.hidden = actualVenue === 'theatre';
     venueButton.textContent = theatrePreview ? 'Volver a la murga' : 'Ver Teatro de Verano';
@@ -260,9 +265,9 @@ async function boot() {
     const finalFallos = state.day === EVENTS[3].day && state.status !== 'playing';
     const fallos = finalFallos || eliminatedFallos;
     const ended = state.status !== 'playing';
-    const resultTitle = state.status === 'won' ? '¡Primer premio para La Vereda!' : state.status === 'lost' ? (state.day === EVENTS[0].day ? 'Esta vez no pasamos la admisión.' : state.day === EVENTS[2].day ? 'Esta vez no entramos a la Liguilla.' : `Terminamos en el puesto ${summary.rank ?? '—'}.`) : 'La temporada sigue en marcha.';
+    const resultTitle = state.status === 'won' ? `¡Primer premio para ${state.identity.name}!` : state.status === 'lost' ? (state.day === EVENTS[0].day ? 'Esta vez no pasamos la admisión.' : state.day === EVENTS[2].day ? 'Esta vez no entramos a la Liguilla.' : `Terminamos en el puesto ${summary.rank ?? '—'}.`) : 'La temporada sigue en marcha.';
     const opening = `<article class="milestone ${calendar.tabladosOpen ? 'completed' : ''}"><span class="milestone-number">${icon('calendar')}</span><div><small>FINES DE ENERO · APERTURA</small><h3>Comienza el circuito de tablados</h3><p>Desde esta fase podés agendar actuaciones. Cada escenario tiene su propia programación.</p></div></article>`;
-    return `${showResult ? `<div class="season-result">${icon('trophy')}<h3>${resultTitle}</h3><p>${escape(state.lastMessage)}</p></div>` : ''}
+    return `${showResult ? `<div class="season-result">${icon('trophy')}<h3>${escape(resultTitle)}</h3><p>${escape(state.lastMessage)}</p></div>` : ''}
       <div class="phase-banner"><span>${icon('calendar')}</span><div><strong>${calendar.phaseLabel}</strong><p>${calendar.tabladosOpen ? 'Tablados y concurso transcurren en paralelo.' : 'Preparación del espectáculo. La financiación inicial sostiene los meses de preparación.'}</p></div></div>
       <div class="forecast"><div><small>${eliminatedFallos ? 'SUMA DE DOS RUEDAS' : finalFallos ? 'SUMA DE TRES RUEDAS' : 'PREPARACIÓN ESTIMADA'}</small><strong>${fallos ? summary.contestTotal.toFixed(1) : 'En ensayo'}<span>${fallos ? '/' + (eliminatedFallos ? '200' : '300') : ''}</span></strong></div><p>${eliminatedFallos ? 'Epílogo: llegó la Noche de Fallos. Tu participación cerró en la segunda rueda; estas son tus dos notas. La admisión no se suma.' : finalFallos ? `Puesto ${summary.rank ?? '—'} entre las finalistas. La admisión no se suma al concurso.` : 'El ensayo permite conocer al elenco, pero no anticipa una nota exacta. Las notas de las ruedas permanecen reservadas hasta los fallos.'}</p></div>
       <div class="timeline">${EVENTS.map((e, i) => {
@@ -277,20 +282,24 @@ async function boot() {
         }
         return `${i === 1 ? opening : ''}<article class="milestone ${result ? 'completed' : ''}"><span class="milestone-number">${result ? icon(result.passed ? 'check' : 'close') : String(i + 1).padStart(2, '0')}</span><div><small>${['NOVIEMBRE · ADMISIÓN', 'FINES DE ENERO / FEBRERO', 'FEBRERO', 'FEBRERO / MARZO'][i]}</small><h3>${i===0&&state.admissionExempt?'Inscripción directa':e.name}</h3><p>${detail}</p></div></article>`;
       }).join('')}</div>
-      ${finalFallos ? `<section class="standings"><h3>Noche de fallos</h3><p>Rivales ficticias · suma de las tres ruedas</p><table><thead><tr><th>Murga finalista</th><th>Total</th></tr></thead><tbody>${getStandings(state).filter(row => row.qualified).map(row => `<tr class="${row.isPlayer ? 'player-row' : ''}"><td>${escape(row.isPlayer ? 'La Vereda' : row.name)}${row.isPlayer ? ' · tu murga' : ''}</td><td>${row.total.toFixed(1)}</td></tr>`).join('')}</tbody></table></section>` : ''}
+      ${finalFallos ? `<section class="standings"><h3>Noche de fallos</h3><p>Rivales ficticias · suma de las tres ruedas</p><table><thead><tr><th>Murga finalista</th><th>Total</th></tr></thead><tbody>${getStandings(state).filter(row => row.qualified).map(row => `<tr class="${row.isPlayer ? 'player-row' : ''}"><td>${escape(row.isPlayer ? state.identity.name : row.name)}${row.isPlayer ? ' · tu murga' : ''}</td><td>${row.total.toFixed(1)}</td></tr>`).join('')}</tbody></table></section>` : ''}
       ${state.status === 'lost' && state.day === EVENTS[2].day && !state.fallosRevealed ? `<div class="phase-banner"><div><strong>Tu participación terminó; los fallos todavía no.</strong><p>Avanzá al cierre del carnaval para conocer las notas de tus dos ruedas.</p><button class="primary-button" data-reveal-fallos>Ir a la Noche de Fallos ${icon('arrow')}</button></div></div>` : ''}
       <div class="log"><h3>La libreta del director</h3>${state.log.map(s => `<p>${escape(s)}</p>`).join('')}</div>
       <p class="fineprint">${TOTAL_DAYS} jornadas representativas de abril a marzo, no días consecutivos. El juego usa murgas rivales ficticias y una escala propia de 0–100 por rueda; no reproduce las planillas oficiales. ${ended ? 'Podés comenzar otra campaña.' : 'Los importes y el desgaste son valores de balance.'}</p>
-      <button class="outline-button" data-open="reset">${icon('refresh')} Nueva temporada</button>`;
+      <button class="outline-button team-summary" data-open="trayectoria">${icon('book')} Historia de la murga ${icon('arrow')}</button><button class="outline-button" data-open="reset">${icon('refresh')} Nueva temporada</button>`;
   }
   function renderPanel() {
-    const titles:Record<string,[string,string]>={comunidad:['SE HACE ENTRE TODOS','La vida de la murga'],decision:['LA LIBRETA DEL DIRECTOR','Una decisión del año'],produccion:['DE LA IDEA AL ESCENARIO','Tu equipo creativo'],plantel:['13 VOCES · 3 INSTRUMENTOS · 1 DIRECCIÓN','El plantel'],fichajes:['NOMBRES, HISTORIAS Y CONVERSACIONES','Mercado de integrantes'],vestuario:['DISEÑO Y CONFECCIÓN','El vestuario'],economia:['FUENTES Y PRESUPUESTOS','El costo del carnaval'],taller:['EL OFICIO DE EMOCIONAR','El taller'],agenda:['DE ABRIL A MARZO','La temporada'],help:['TU PRIMER CARNAVAL','Guía del director'],resultado:['BAJÓ EL TELÓN','Resultado de temporada'],reset:['LA MURGA SIGUE','La próxima temporada']};
+    const titles:Record<string,[string,string]>={trayectoria:['DE CARNAVAL EN CARNAVAL','Historia de la murga'],identidad:['EL NOMBRE QUE VAMOS A CANTAR','Nuestra identidad'],comunidad:['SE HACE ENTRE TODOS','La vida de la murga'],decision:['LA LIBRETA DEL DIRECTOR','Una decisión del año'],produccion:['DE LA IDEA AL ESCENARIO','Tu equipo creativo'],plantel:['13 VOCES · 3 INSTRUMENTOS · 1 DIRECCIÓN','El plantel'],fichajes:['NOMBRES, HISTORIAS Y CONVERSACIONES','Mercado de integrantes'],vestuario:['DISEÑO Y CONFECCIÓN','El vestuario'],economia:['FUENTES Y PRESUPUESTOS','El costo del carnaval'],taller:['EL OFICIO DE EMOCIONAR','El taller'],agenda:['DE ABRIL A MARZO','La temporada'],help:['TU PRIMER CARNAVAL','Guía del director'],resultado:['BAJÓ EL TELÓN','Resultado de temporada'],reset:['LA MURGA SIGUE','La próxima temporada']};
     const [kicker,title] = titles[page]??titles.help;
     document.querySelector('#panel-kicker')!.textContent=kicker; document.querySelector('#panel-title')!.textContent=title;
     dialog.classList.toggle('production-panel', page === 'produccion');
     let body = '';
     const locked = !state.productionStarted || state.status !== 'playing';
-    if(page==='comunidad') {
+    if(page==='trayectoria') {
+      body=careerPanel(state);
+    } else if(page==='identidad') {
+      body=identityPanel(state);
+    } else if(page==='comunidad') {
       body=communityPanel(state);
     } else if(page==='decision') {
       body=decisionPanel(state);
@@ -320,13 +329,13 @@ async function boot() {
     } else if(page==='agenda'||page==='resultado') {
       body=seasonPanel(page==='resultado');
     } else if(page==='reset') {
-      body=`<p class="intro-copy">La Vereda vuelve en abril con su plantel, su reputación y las carreras que construiste. Las nuevas contrataciones y el equipo creativo se negocian para el año siguiente. La financiación de la nueva campaña y el saldo quedan registrados. Renovar este plantel costará ${money(getSeasonRenewalCost(state))}, descontados de la caja de la nueva temporada.</p>${state.status==='playing'?'<p class="calendar-note">Primero terminá la temporada actual. Los años de carrera no se ganan reiniciando una campaña.</p>':''}<div class="confirm-actions"><button class="outline-button" data-close>Volver</button><button class="primary-button" data-reset ${state.status==='playing'?'disabled':''}>Continuar a la temporada ${state.season+1}</button></div>`;
+      body=`<p class="intro-copy">${escape(state.identity.name)} vuelve en abril con su plantel, su reputación y las carreras que construiste. Las nuevas contrataciones y el equipo creativo se negocian para el año siguiente. La financiación de la nueva campaña y el saldo quedan registrados. Renovar este plantel costará ${money(getSeasonRenewalCost(state))}, descontados de la caja de la nueva temporada.</p>${state.status==='playing'?'<p class="calendar-note">Primero terminá la temporada actual. Los años de carrera no se ganan reiniciando una campaña.</p>':''}<div class="confirm-actions"><button class="outline-button" data-close>Volver</button><button class="primary-button" data-reset ${state.status==='playing'?'disabled':''}>Continuar a la temporada ${state.season+1}</button></div>`;
     } else {
       body=`<div class="guide-step"><b>01</b><div><h3>Primero, el equipo creativo</h3><p>Elegí letrista, arreglador/a coral, vestuarista, maquillador/a y puestista. Compará trayectoria y honorarios. Los diseños del vestuarista aparecen después de contratarlo: te presenta dos alternativas y elegís cuál confeccionar. Podés cambiar perfiles recuperando el pago anterior hasta que empieces la preparación; después trabajan contigo toda la temporada.</p></div></div>
       <div class="guide-step"><b>02</b><div><h3>De abril al invierno: armar y ensayar</h3><p>Armá el elenco mucho antes de noviembre: buscá artistas, escuchá audiciones y negociá según la reputación de tu murga. Los ensayos comienzan en julio en esta campaña. Dirigí a 13 coreutas, 3 percusionistas y 1 director/a escénico/a. Solo el coro usa cuerdas; bombo, redoblante, platillos y dirección tienen técnica y energía propias. Ensayar mejora cada función. La admisión decide el ingreso de quienes no clasificaron por la Liguilla anterior. Las finalistas confirman su inscripción directa, sin prueba, puntaje ni desgaste.</p></div></div>
       <div class="guide-step"><b>03</b><div><h3>Diciembre y enero: desarrollar el espectáculo</h3><p>Usá la caja que queda después de los contratos para preparar textos, arreglos, vestuario y puesta. Los técnicos influyen en esas áreas y el maquillaje también suma al concurso. Las funciones previas al desfile son eventos puntuales.</p></div></div>
       <div class="guide-step"><b>04</b><div><h3>Ahora sí: tablados y concurso</h3><p>El circuito abre a fines de enero. Las actuaciones generan dinero y desgaste. Todos los conjuntos admitidos hacen las dos primeras ruedas; la suma define el ingreso a la Liguilla. El ganador surge de sumar las tres ruedas, sin contar la admisión.</p></div></div>
-      <div class="guide-note"><h3>La murga también se cuida</h3><p>Conversá con candidatos para construir confianza antes de una oferta. Disponés de tres conversaciones por jornada y cada persona necesita tiempo entre charlas. En El barrio podés organizar hasta tres festivales de financiación antes del carnaval o dedicar una jornada a la convivencia. Las decisiones del año tienen consecuencias visibles y siempre una alternativa sin gasto.</p><h3>Las reglas de este juego</h3><p>Los puntajes de concurso se reservan hasta los fallos. Los valores económicos son estimaciones del juego en UYU, con referencias históricas consultables. La habilidad individual permanece oculta; los informes de audición son aproximados. 13 coreutas, 3 percusionistas y 1 director es nuestra plantilla, no una distribución universal obligatoria.</p><p>Los cinco técnicos están fuera de las plazas escénicas. En la práctica una persona puede desempeñar varios oficios; aquí se contratan por separado para que puedas decidir cómo invertir.</p><p>La declaración de repertorio documenta autores y obras; prepararla no equivale a una autorización universal.</p></div>
+      <div class="guide-note"><h3>La murga también se cuida</h3><p>Conversá con candidatos para construir confianza antes de una oferta. Disponés de tres conversaciones por jornada y cada persona necesita tiempo entre charlas. En El barrio podés organizar hasta tres festivales de financiación antes del carnaval o dedicar una jornada a la convivencia. Las decisiones del año tienen consecuencias visibles y siempre una alternativa sin gasto.</p><h3>Una historia que continúa</h3><p>Desde El barrio podés ponerle nombre y barrio a la murga. Su historia conserva hasta 50 temporadas cerradas, sus cuentas y la trayectoria del elenco. Las notas del carnaval actual siguen reservadas hasta los fallos; al pasar de año, el cierre queda archivado antes de financiar la siguiente campaña.</p><h3>Las reglas de este juego</h3><p>Los puntajes de concurso se reservan hasta los fallos. Los valores económicos son estimaciones del juego en UYU, con referencias históricas consultables. La habilidad individual permanece oculta; los informes de audición son aproximados. 13 coreutas, 3 percusionistas y 1 director es nuestra plantilla, no una distribución universal obligatoria.</p><p>Los cinco técnicos están fuera de las plazas escénicas. En la práctica una persona puede desempeñar varios oficios; aquí se contratan por separado para que puedas decidir cómo invertir.</p><p>La declaración de repertorio documenta autores y obras; prepararla no equivale a una autorización universal.</p></div>
       <p class="fineprint">La partida se guarda en este dispositivo. ${modelReady?'Elenco con cuerpo común, vestuario intercambiable y animaciones. Personalizá a cada integrante en el taller.':'El elenco 3D está cargando; si falla, muestra figuras provisionales.'}</p><button class="outline-button" data-open="reset">${icon('refresh')} Próxima temporada</button>`;
     }
     if (page === 'taller') body = `<button class="outline-button team-summary" data-open="vestuario">${icon('shirt')} Diseño y confección del vestuario ${icon('arrow')}</button>` + body;
@@ -370,7 +379,22 @@ async function boot() {
     }
     else if(target.hasAttribute('data-refresh')) commit(refreshCandidates(state));
     else if(target.hasAttribute('data-license')) commit(buyLicense(state));
-    else if(target.hasAttribute('data-reset')) { const next=nextSeason(state); if(next===state) return; state=next; replacement=state.members[0].id; market.page=0; creativeRole='lyrics'; theatrePreview=false; save(); dialog.close(); render(); toast(state.lastMessage); }
+    else if(target.hasAttribute('data-reset')) { const next=nextSeason(state); if(next.season===state.season) { toast(next.lastMessage); return; } state=next; replacement=state.members[0].id; market.page=0; creativeRole='lyrics'; theatrePreview=false; save(); dialog.close(); render(); toast(state.lastMessage); }
+  });
+  document.addEventListener('submit', event => {
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement) || form.id !== 'identity-form') return;
+    event.preventDefault();
+    const data = new FormData(form);
+    const draft = { name: String(data.get('name') ?? ''), barrio: String(data.get('barrio') ?? '') };
+    const validation = validateIdentity(draft);
+    if (!validation.valid) {
+      const error = document.querySelector<HTMLElement>('#identity-error');
+      if (error) { error.textContent = validation.reason; error.hidden = false; }
+      return;
+    }
+    commit(setIdentity(state, draft));
+    openPanel('trayectoria');
   });
   document.addEventListener('input',event=>{
     const target=event.target as HTMLInputElement;

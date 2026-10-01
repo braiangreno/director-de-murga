@@ -1,8 +1,47 @@
 # Director de Murga
 
-Documento de diseño del prototipo. La sección vigente describe la **revisión v5, implementada al 1 de octubre de 2026**. Las secciones v4 y v3 se conservan como antecedentes: sus referencias a versiones, calendario, precios, interfaz o tareas pendientes no sustituyen el estado vigente. Los valores concretos de balance están en `src/simulation.ts`.
+Documento de diseño del prototipo. La revisión vigente es **v6, del 1 de octubre de 2026**: añade identidad e historial de carrera a los sistemas comunitarios de v5, que se conservan. Las secciones v4 y v3 son antecedentes; sus versiones, calendarios y tareas pendientes no sustituyen el estado actual. Los valores concretos de balance están en `src/simulation.ts`. Esta actualización documental no acredita nuevas pruebas de navegador ni una compilación o ejecución nativa de v6.
 
-## Revisión vigente v5: la vida de la murga
+## Revisión vigente v6: identidad y trayectoria
+
+### Una murga con nombre propio
+
+`State.identity` contiene el nombre y el barrio o localidad. Ambos admiten de 2 a 40 caracteres, con espacios normalizados, sin etiquetas ni caracteres de control. Los valores iniciales son **La Vereda** y **Montevideo**. La opción **Tu murga** permite modificarlos sin consumir jornada, caja ni recursos artísticos. No cambia las identidades de integrantes, sus apariencias ni el catálogo de vestuario.
+
+La identidad se presenta en la sede, las conversaciones de mercado, la comunidad y los resultados. La interfaz trata los textos como contenido, no como HTML. Cambiar el nombre actual no renombra rivales ni reescribe los años archivados: cada cierre conserva su propia identidad.
+
+### Informe de la temporada y archivo anual
+
+`getSeasonReport` devuelve un informe público del año actual: estado de la campaña, identidad, caja, cuentas, reputación, seguidores y elenco con sus datos públicos. Las notas de las ruedas, su total, promedio y puesto permanecen ocultos hasta los fallos; la admisión conserva su tratamiento separado y no se suma al concurso.
+
+Un `nextSeason` exitoso archiva la temporada que terminó **antes** de sumar financiación, descontar renovación y aplicar bonificaciones de experiencia o fama del nuevo año. Así, la caja y las carreras del cierre corresponden al año archivado. Una campaña en curso o una renovación que no puede pagarse no genera un cierre ni incrementa contadores.
+
+El paso de año también constituye el cierre público del carnaval: si el jugador eliminado en segunda rueda no había visitado el epílogo, las notas de ese año quedan publicadas en su archivo. Esto no descubre las notas del nuevo año ni crea una tercera actuación que no ocurrió.
+
+Cada entrada conserva los siguientes datos:
+
+- Temporada, nombre y barrio o localidad de ese cierre, resultado y condición de inscripción directa.
+- Caja final y libro de cuentas anterior a los movimientos del año siguiente.
+- Reputación, seguidores, rondas cumplidas y resultados publicados.
+- Identificador, nombre, función, XP y fama de los integrantes de aquel elenco. No incluye su voz, habilidad o carisma internos.
+
+`getSeasonHistory` entrega copias de los últimos **50 cierres**, ordenados por temporada. Los cambios posteriores de nombre, contratos, dinero o miembros no alteran esos registros. Los contadores de temporadas completadas, campeonatos y finales abarcan todo el período registrado, incluso cuando las entradas más antiguas dejan de caber en el archivo. El panel debe distinguir ese total del número de archivos retenidos.
+
+### Comparación del elenco y de la caja
+
+`getRosterProgress` compara a cada integrante actual con **el mismo ID en el último cierre archivado**. Muestra XP y fama actuales y sus diferencias públicas. Una incorporación sin referencia en ese cierre, o una partida sin archivos, devuelve diferencias `null`: la interfaz indica que falta una referencia, en vez de inventar un cero o atribuir toda la experiencia a este año. La comparación incluye lo ocurrido desde ese cierre, también la bonificación del cambio de temporada. No ordena ni recomienda personas por habilidades internas.
+
+Los ingresos de actividad incluyen actuaciones, aportes barriales y premios del juego. Los gastos agrupan contratos, confección, audiciones, mejoras, ensayo, actuaciones y convivencia. **`accounts.opening` queda fuera de ingresos operativos y gastos**: identifica capital inicial o financiación más remanente, no dinero ganado actuando. La caja de cierre y el resultado operativo se muestran como conceptos diferentes. Estos cálculos son contabilidad simplificada del juego, sin introducir tarifas reales nuevas.
+
+### Guardado v6 y continuidad
+
+La clave activa es `director-de-murga-v6`. El esquema añade `identity`, `history` y contadores de carrera con `sinceSeason`, junto a los campos de v5. El archivo guarda copias independientes y se incorpora una sola vez al cierre. La interfaz consume las APIs públicas, que no exponen capacidades artísticas ocultas; el guardado local completo sigue conteniendo los datos internos necesarios para la simulación.
+
+La migración **v5 → v6** conserva los datos anteriores y agrega identidad inicial, historial vacío y contadores desde la temporada en curso. No deduce campeonatos pasados ni inventa planteles, balances o progresos que el guardado antiguo no registró. El primer cierre posterior a la actualización inicia el archivo real. Las comparaciones sin referencia siguen siendo desconocidas.
+
+Las claves anteriores quedan respaldadas. Las migraciones más antiguas conservan sus pasos previos: **v4 → v5** incorpora comunidad sin cambiar dinero; **v3 → v4** contiene la conversión histórica de calendario y economía documentada más abajo. Ninguno de esos ajustes debe atribuirse al cambio directo de v5 a v6. Las apariencias mantienen su clave separada y los mismos IDs.
+
+## Base funcional v5 conservada en v6: la vida de la murga
 
 La campaña conserva el armado de abril, 32 jornadas representativas, 120 candidatos persistentes y un elenco de 17 integrantes. El mercado abre hasta terminar septiembre; se ensaya desde julio, la admisión ocurre en noviembre y el circuito de tablados empieza a fines de enero. Son fechas comprimidas de esta simulación. Las cinco contrataciones técnicas, la economía en UYU, las carreras entre temporadas y las propuestas de vestuario introducidas en v4 siguen vigentes.
 
@@ -35,7 +74,7 @@ Son situaciones ficticias con consecuencias de balance; no sanciones oficiales n
 
 La libreta de caja incorpora `communityIncome` y `communityCosts`: recaudación de festivales por un lado, organización, encuentros y opciones pagadas por otro. Estos movimientos participan en el mismo balance que contratos, confección, ensayos y actuaciones; no son premios externos a la contabilidad.
 
-El esquema y la clave activa son **v5**, `director-de-murga-v5`. Guarda ánimo, vínculos, última conversación de cada persona, cuota diaria, festivales utilizados, decisión pendiente e historial. La resolución y sus efectos forman un único estado guardado; volver a cargar o pulsar de nuevo una opción ya resuelta no repite sus efectos. El elenco y los candidatos conservan sus campos al intercambiar una plaza.
+Estos campos fueron introducidos en **v5**, con clave histórica `director-de-murga-v5`, y ahora se conservan dentro del guardado v6: ánimo, vínculos, última conversación de cada persona, cuota diaria, festivales utilizados, decisión pendiente e historial de decisiones. La resolución y sus efectos forman un único estado guardado; volver a cargar o pulsar de nuevo una opción ya resuelta no repite sus efectos. El elenco y los candidatos conservan sus campos al intercambiar una plaza.
 
 La migración **v4 → v5** mantiene dinero, carreras, resultados y partidas contables anteriores. Inicializa los campos comunitarios y marca eventos pasados como anteriores a esta actualización, sin aplicar recompensas retroactivas. Si corresponde un evento a la jornada actual, se presenta pendiente. La migración **v3 → v4 → v5** conserva primero la conversión histórica de calendario y economía, incluida su financiación de transición; no confundir ese ajuste con la migración directa desde v4. Las claves anteriores se respaldan y un guardado activo inválido se copia a una clave de recuperación.
 
@@ -63,7 +102,7 @@ Evidencia, fechas, precios históricos y límites: [ECONOMIA-Y-CARRERAS-FUENTES.
 
 ## Antecedente v3: especificación histórica
 
-**Archivo de diseño:** las secciones restantes conservan propuestas y límites de v3. El calendario, las funciones implementadas y el guardado vigentes están descritos arriba en v5.
+**Archivo de diseño:** las secciones restantes conservan propuestas y límites de v3. El calendario, las funciones y el guardado vigentes están descritos arriba en v6 y su base funcional v5.
 
 ## Propuesta
 

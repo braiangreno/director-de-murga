@@ -30,8 +30,35 @@ export interface Accounts {
   upgrades: number; rehearsals: number; performanceIncome: number; performanceCosts: number; prizes: number;
   communityIncome: number; communityCosts: number;
 }
+
+export interface MurgaIdentity { name: string; barrio: string; }
+export type SeasonOutcome = 'not-admitted' | 'second-round' | 'finalist' | 'champion';
+export interface PublicRosterMember {
+  id: string; name: string; role: MemberRole; experience: number; fame: number;
+}
+export interface PublicSeasonReport {
+  season: number; identity: MurgaIdentity; outcome: SeasonOutcome | 'in-progress';
+  cash: number; reputation: number; fans: number; accounts: Accounts; roster: PublicRosterMember[];
+  admissionExempt: boolean; results: {name:string;score:number|null;passed:boolean}[];
+  contestTotal: number | null; contestAverage: number | null; rank: number | null;
+  roundsCompleted: number; scoresPublic: boolean;
+}
+export interface SeasonArchive extends PublicSeasonReport {
+  outcome: SeasonOutcome; scoresPublic: true; closingCash: number;
+}
+export interface CareerCounters {
+  sinceSeason: number; completedSeasons: number; championships: number; finals: number;
+}
+export const HISTORY_LIMIT = 50;
+export const DEFAULT_IDENTITY: Readonly<MurgaIdentity> = Object.freeze({name:'La Vereda',barrio:'Montevideo'});
+export const OUTCOME_LABELS: Record<SeasonOutcome | 'in-progress', string> = {
+  'in-progress':'En curso', 'not-admitted':'No admitida', 'second-round':'Segunda rueda',
+  finalist:'Finalista', champion:'Campeona',
+};
+
 export interface State {
-  version: 5; season: number; day: number; money: number; fans: number; reputation: number;
+  version: 6; identity: MurgaIdentity; history: SeasonArchive[]; career: CareerCounters;
+  season: number; day: number; money: number; fans: number; reputation: number;
   productionStarted: boolean; admissionExempt: boolean; creativeTeam: Record<CreativeRole, string | null>;
   creativeFees: Record<CreativeRole, number>; costumeProposalId: string | null;
   accounts: Accounts; fallosRevealed: boolean;
@@ -106,7 +133,7 @@ const sumScores = (values: number[]) => round(values.reduce((sum, value) => sum 
 
 
 function copy(state:State):State {
-  return {...state,creativeTeam:{...state.creativeTeam},creativeFees:{...state.creativeFees},accounts:{...state.accounts},
+  return {...state,identity:{...state.identity},history:state.history.map(cloneArchive),career:{...state.career},creativeTeam:{...state.creativeTeam},creativeFees:{...state.creativeFees},accounts:{...state.accounts},
     members:state.members.map(m=>({...m})),candidates:state.candidates.map(m=>({...m})),upgrades:{...state.upgrades},
     results:state.results.map(r=>({...r})),rivals:state.rivals.map(r=>({...r,scores:[...r.scores]})),log:[...state.log],
     resolvedDecisions:[...state.resolvedDecisions],decisionHistory:state.decisionHistory.map(d=>({...d}))};
@@ -134,7 +161,7 @@ function makeCandidate(state:State,index:number):Member {
     scouting:0,participation:0,morale:70,rapport:0,lastContactDay:-1};
 }
 export function createGame(seed=2026):State {
-  const state:State={version:5,season:1,day:0,money:INITIAL_BUDGET,fans:40,reputation:20,productionStarted:false,admissionExempt:false,
+  const state:State={version:6,identity:{...DEFAULT_IDENTITY},history:[],career:{sinceSeason:1,completedSeasons:0,championships:0,finals:0},season:1,day:0,money:INITIAL_BUDGET,fans:40,reputation:20,productionStarted:false,admissionExempt:false,
     creativeTeam:emptyTeam(),creativeFees:emptyFees(),costumeProposalId:null,accounts:emptyAccounts(INITIAL_BUDGET),fallosRevealed:false,
     contactsToday:0,fundraisersUsed:0,pendingDecision:null,resolvedDecisions:[],decisionHistory:[],
     members:[],candidates:[],upgrades:{voices:0,lyrics:0,costumes:0,staging:0},licensed:false,penalty:0,results:[],
@@ -154,6 +181,80 @@ export function createGame(seed=2026):State {
   log(state,'Abril: financiación inicial de $1.200.000 UYU. Armá el elenco, conversá con los componentes y contratá los cinco oficios técnicos antes de iniciar los ensayos. Precios estimados del juego.');
   return state;
 }
+
+/** Personal identity is presentation data and never changes the economic or artistic model. */
+export function validateIdentity(input: unknown): {valid:boolean;reason:string;identity:MurgaIdentity|null} {
+  if(!input || typeof input!=='object' || Array.isArray(input))
+    return {valid:false,reason:'Ingresá el nombre de la murga y su barrio.',identity:null};
+  const data=input as Record<string,unknown>;
+  const clean=(value:unknown):string|null=>{
+    if(typeof value!=='string' || /[<>\p{Cc}\p{Cf}]/u.test(value)) return null;
+    const normalized=value.normalize('NFC').replace(/\s+/gu,' ').trim();
+    const length=[...normalized].length;
+    return length>=2 && length<=40?normalized:null;
+  };
+  const name=clean(data.name),barrio=clean(data.barrio);
+  if(name===null || barrio===null)
+    return {valid:false,reason:'Nombre y barrio deben tener entre 2 y 40 caracteres, sin etiquetas ni caracteres de control.',identity:null};
+  return {valid:true,reason:'',identity:{name,barrio}};
+}
+export function setIdentity(state:State,identity:MurgaIdentity):State {
+  const validation=validateIdentity(identity);
+  if(!validation.valid) return notice(state,validation.reason);
+  if(validation.identity!.name===state.identity.name && validation.identity!.barrio===state.identity.barrio)
+    return notice(state,'El nombre y el barrio ya están guardados.');
+  const next=copy(state);next.identity=validation.identity!;
+  log(next,`La murga se presenta como ${next.identity.name}, de ${next.identity.barrio}. Los años archivados conservan su identidad original.`);
+  return next;
+}
+function cloneArchive(archive:SeasonArchive):SeasonArchive {
+  return {...archive,identity:{...archive.identity},accounts:{...archive.accounts},
+    roster:archive.roster.map(member=>({...member})),results:archive.results.map(result=>({...result}))};
+}
+function seasonOutcome(state:State):SeasonOutcome|'in-progress' {
+  if(state.status==='playing') return 'in-progress';
+  if(state.status==='won') return 'champion';
+  return state.day===EVENTS[0].day?'not-admitted':state.day===EVENTS[2].day?'second-round':'finalist';
+}
+function publicSeasonReport(state:State,closing=false):PublicSeasonReport {
+  const summary=getContestSummary(state);
+  const scoresPublic=closing || state.fallosRevealed || (state.day===EVENTS[3].day&&state.status!=='playing') || (state.day===EVENTS[0].day&&state.status==='lost');
+  return {season:state.season,identity:{...state.identity},outcome:seasonOutcome(state),
+    cash:state.money,reputation:state.reputation,fans:state.fans,accounts:{...state.accounts},
+    roster:state.members.map(({id,name,role,experience,fame})=>({id,name,role,experience,fame})),
+    admissionExempt:state.admissionExempt,
+    results:state.results.map((result,index)=>({name:result.name,
+      score:index===0?(state.admissionExempt?null:result.score):scoresPublic?result.score:null,passed:result.passed})),
+    contestTotal:scoresPublic?summary.contestTotal:null,contestAverage:scoresPublic?summary.contestAverage:null,
+    rank:scoresPublic?summary.rank:null,roundsCompleted:summary.roundsCompleted,scoresPublic};
+}
+/** Safe for rendering throughout the current season: sealed jury marks and ranks are null. */
+export function getSeasonReport(state:State):PublicSeasonReport { return publicSeasonReport(state); }
+/** Archived years are published when a successful nextSeason closes the carnival. */
+export function getSeasonHistory(state:State):SeasonArchive[] { return state.history.map(cloneArchive); }
+export function getCareerSummary(state:State):CareerCounters & {retainedSeasons:number;historyLimit:number;omittedSeasons:number} {
+  return {...state.career,retainedSeasons:state.history.length,historyLimit:HISTORY_LIMIT,
+    omittedSeasons:Math.max(0,state.career.completedSeasons-state.history.length)};
+}
+export function getRosterProgress(state:State): (PublicRosterMember & {
+  previousExperience:number|null;previousFame:number|null;experienceDelta:number|null;fameDelta:number|null;
+})[] {
+  const previous=state.history.at(-1);
+  return state.members.map(({id,name,role,experience,fame})=>{
+    const before=previous?.roster.find(member=>member.id===id);
+    return {id,name,role,experience,fame,previousExperience:before?.experience??null,previousFame:before?.fame??null,
+      experienceDelta:before?round(experience-before.experience):null,fameDelta:before?round(fame-before.fame):null};
+  });
+}
+function archiveFinishedSeason(target:State,finished:State):void {
+  const report=publicSeasonReport(finished,true);
+  const archive:SeasonArchive={...report,outcome:seasonOutcome(finished) as SeasonOutcome,scoresPublic:true,closingCash:finished.money};
+  target.history=[...target.history,archive].slice(-HISTORY_LIMIT);
+  target.career.completedSeasons++;
+  if(archive.outcome==='champion') target.career.championships++;
+  if(archive.outcome==='champion'||archive.outcome==='finalist') target.career.finals++;
+}
+
 export function getProductionSummary(state: State): {
   hired: number; required: number; ready: boolean; totalFees: number; remainingBudget: number;
   team: { role: CreativeRole; label: string; candidate: CreativeCandidate | null }[];
@@ -292,7 +393,7 @@ type Standing = { id: string; name: string; total: number; qualified: boolean; i
 
 function contestStandings(state: State): Standing[] {
   const rounds = state.results.slice(1).map(result => result.score);
-  const field = [{ id: 'player', name: 'Tu murga', scores: rounds, isPlayer: true },
+  const field = [{ id: 'player', name: state.identity.name, scores: rounds, isPlayer: true },
     ...state.rivals.map(rival => ({ ...rival, isPlayer: false }))];
   // All tied at tenth place qualify, so a tied field can contain more than ten finalists.
   const cutoff = rounds.length >= 2
@@ -700,6 +801,7 @@ export function getSeasonRenewalCost(state:State):number {
 }
 export function nextSeason(state:State):State {
   if(state.status==='playing') return notice(state,'Primero terminá la participación de esta temporada.');
+  if(state.season>=10000) return notice(state,'La campaña alcanzó el límite de temporadas de esta versión. Su archivo permanece disponible.');
   const next=copy(state);
   next.admissionExempt=getContestSummary(state).liguillaQualified===true;
   next.season++;next.day=0;next.status='playing';next.productionStarted=false;next.fallosRevealed=false;
@@ -709,6 +811,7 @@ export function nextSeason(state:State):State {
   next.rivals.forEach(r=>{r.scores=[];});
   const renewal=getSeasonRenewalCost(state);
   if(next.money+SEASON_FINANCING<renewal) return notice(state,'La financiación anual no alcanza para renovar este elenco. Revisá la caja antes de iniciar otro año.');
+  archiveFinishedSeason(next,state);
   next.money+=SEASON_FINANCING;next.accounts=emptyAccounts(next.money);
   next.money-=renewal;next.accounts.recruitment=renewal;
   for(const member of next.members) {
@@ -784,6 +887,13 @@ function migrateV4(raw: Record<string, unknown>): unknown {
     decisionHistory:previous.map(decision=>({id:decision.id,optionId:null,day:decision.day}))};
 }
 
+
+/** Identity and the archive begin now; legacy seasons are not reconstructed or credited. */
+function migrateV5(raw:Record<string,unknown>):unknown {
+  return {...raw,version:6,identity:{...DEFAULT_IDENTITY},history:[],
+    career:{sinceSeason:raw.season,completedSeasons:0,championships:0,finals:0}};
+}
+
 /** Reject corrupted/out-of-schema saves; local saves are not an anti-cheat security boundary. */
 export function parseSave(raw: string | null): State | null {
   if (!raw || raw.length > 600000) return null;
@@ -796,7 +906,8 @@ export function parseSave(raw: string | null): State | null {
     if (object(value) && value.version === 3) value = migrateV3(value);
     if(object(value)&&value.version===4&&!Object.hasOwn(value,'admissionExempt')) value.admissionExempt=false;
     if(object(value)&&value.version===4) value=migrateV4(value);
-    if (!object(value) || value.version !== 5 || !number(value.season, 1, 10000, true) || !number(value.day, 0, TOTAL_DAYS - 1, true) ||
+    if(object(value)&&value.version===5) value=migrateV5(value);
+    if (!object(value) || value.version !== 6 || !number(value.season, 1, 10000, true) || !number(value.day, 0, TOTAL_DAYS - 1, true) ||
       !number(value.money, 0, 1000000000, true) || !number(value.fans, 0, 1000000000, true) || !number(value.seed, 0, 4294967295, true) ||
       typeof value.licensed !== 'boolean' || typeof value.productionStarted !== 'boolean' || typeof value.fallosRevealed !== 'boolean' || value.penalty !== 0 || !['playing', 'won', 'lost'].includes(value.status as string) ||
       !text(value.lastMessage, 1000) || !Array.isArray(value.log) || value.log.length > 30 || !value.log.every(item => text(item, 1000))) return null;
@@ -832,6 +943,65 @@ export function parseSave(raw: string | null): State | null {
       !accountKeys.every(key=>number(state.accounts[key],0,10000000000,true)) ||
       accountBalance(state.accounts)!==state.money ||
       state.accounts.technical!==CREATIVE_ROLES.reduce((sum,role)=>sum+state.creativeFees[role],0)) return null;
+
+    const identity=(input:unknown):input is MurgaIdentity=>{
+      if(!object(input)||Object.keys(input).length!==2) return false;
+      const validated=validateIdentity(input);
+      return validated.valid&&validated.identity!.name===input.name&&validated.identity!.barrio===input.barrio;
+    };
+    if(!identity(state.identity)||!object(state.career)||Object.keys(state.career).length!==4||
+      !number(state.career.sinceSeason,1,state.season,true)||
+      !number(state.career.completedSeasons,0,9999,true)||
+      state.career.completedSeasons!==state.season-state.career.sinceSeason||
+      !number(state.career.finals,0,state.career.completedSeasons,true)||
+      !number(state.career.championships,0,state.career.finals,true)||
+      !Array.isArray(state.history)||state.history.length!==Math.min(HISTORY_LIMIT,state.career.completedSeasons)) return null;
+    const archiveKeys=['season','identity','outcome','cash','reputation','fans','accounts','roster','admissionExempt',
+      'results','contestTotal','contestAverage','rank','roundsCompleted','scoresPublic','closingCash'];
+    const rosterKeys=['id','name','role','experience','fame'];
+    const archiveMember=(member:unknown):member is PublicRosterMember=>object(member)&&
+      Object.keys(member).length===rosterKeys.length&&rosterKeys.every(key=>Object.hasOwn(member,key))&&
+      text(member.id,80)&&/^m-[a-z0-9-]+$/.test(member.id)&&text(member.name,100)&&
+      MEMBER_ROLES.includes(member.role as MemberRole)&&number(member.experience,0,100)&&number(member.fame,0,100);
+    const validArchive=(input:unknown,index:number):boolean=>{
+      if(!object(input)||Object.keys(input).length!==archiveKeys.length||!archiveKeys.every(key=>Object.hasOwn(input,key))||
+        input.season!==state.season-state.history.length+index||!identity(input.identity)||
+        !['not-admitted','second-round','finalist','champion'].includes(input.outcome as string)||
+        input.scoresPublic!==true||!number(input.cash,0,1000000000,true)||input.closingCash!==input.cash||
+        !number(input.reputation,0,100)||!number(input.fans,0,1000000000,true)||
+        typeof input.admissionExempt!=='boolean'||(input.admissionExempt&&(input.season as number)<2)||
+        !object(input.accounts)||Object.keys(input.accounts).length!==accountKeys.length||
+        !accountKeys.every(key=>number((input.accounts as Record<string,unknown>)[key],0,10000000000,true))||
+        accountBalance(input.accounts as unknown as Accounts)!==input.cash||
+        !Array.isArray(input.roster)||input.roster.length!==17||!input.roster.every(archiveMember)) return false;
+      const roster=input.roster as PublicRosterMember[];
+      if(new Set(roster.map(member=>member.id)).size!==17||
+        !MEMBER_ROLES.every(role=>roster.filter(member=>member.role===role).length===(role==='chorister'?13:1))) return false;
+      const rounds=input.outcome==='not-admitted'?0:input.outcome==='second-round'?2:3;
+      if(input.roundsCompleted!==rounds||!Array.isArray(input.results)||input.results.length!==rounds+1) return false;
+      if(!input.results.every((result,index)=>{
+        if(!object(result)||Object.keys(result).length!==3||result.name!==EVENTS[index].name||typeof result.passed!=='boolean') return false;
+        if(index===0){
+          if(input.admissionExempt) return result.score===null&&result.passed===true&&input.outcome!=='not-admitted';
+          return score(result.score)&&result.passed===((result.score as number)>=EVENTS[0].threshold)&&
+            result.passed===(input.outcome!=='not-admitted');
+        }
+        return score(result.score)&&result.passed===(index!==rounds||input.outcome==='champion');
+      })) return false;
+      const marks=input.results.slice(1).map(result=>(result as {score:number}).score);
+      const total=sumScores(marks);
+      if(input.contestTotal!==total||input.contestAverage!==(rounds?round(total/rounds):0)) return false;
+      if(rounds===0) return input.rank===null;
+      return input.outcome==='champion'?input.rank===1:
+        number(input.rank,input.outcome==='second-round'?11:2,19,true);
+    };
+    if(!state.history.every(validArchive)) return null;
+    const retainedChampionships=state.history.filter(entry=>entry.outcome==='champion').length;
+    const retainedFinals=state.history.filter(entry=>entry.outcome==='champion'||entry.outcome==='finalist').length;
+    const omitted=state.career.completedSeasons-state.history.length;
+    if(state.career.championships<retainedChampionships||state.career.championships>retainedChampionships+omitted||
+      state.career.finals<retainedFinals||state.career.finals>retainedFinals+omitted) return null;
+
     const proposal=getCostumeProposals(state).find(item=>item.id===state.costumeProposalId);
     if(state.costumeProposalId!==null && (!proposal || state.accounts.costume!==proposal.cost)) return null;
     if(state.costumeProposalId===null && state.accounts.costume!==0) return null;

@@ -9,6 +9,7 @@ import {
   getCostumeProposals,chooseCostumeProposal,nextSeason,getEconomySummary,revealEliminatedFallos,REHEARSALS_START_DAY,getSeasonRenewalCost,
   contactCandidate,getContactAvailability,getPendingDecision,resolveDecision,getDecisionHistory,getCommunitySummary,
   CONTACTS_PER_DAY,FUNDRAISER_LIMIT,DECISION_DAYS,
+  setIdentity,validateIdentity,getSeasonReport,getSeasonHistory,getRosterProgress,getCareerSummary,HISTORY_LIMIT,
   type State,type Action,type Member,
 } from './simulation';
 
@@ -273,7 +274,7 @@ test('role practice, voice arrangement and energy influence artistic evaluation;
 test('v3 migration preserves identities, ability, saved performances and jury ballots, with one explicit financing adjustment',()=>{
   for(const active of [false,true]){
     const v3=legacyV3(0,active),migrated=parseSave(JSON.stringify(v3))!;
-    assert.ok(migrated);assert.equal(migrated.version,5);assert.equal(migrated.money,230000+880000);
+    assert.ok(migrated);assert.equal(migrated.version,6);assert.equal(migrated.money,230000+880000);
     assert.equal(migrated.day,active?15:0);assert.equal(migrated.candidates.length,120);
     assert.deepEqual(migrated.members.map(m=>[m.id,m.voice,m.skill,m.assignedCord]),(v3.members as Member[]).map(m=>[m.id,m.voice,m.skill,m.assignedCord]));
     assert.match(migrated.log[0],/880.000/);save(migrated);
@@ -442,7 +443,7 @@ test('v4 migration retains all old fields, activates only the current decision a
   for(const day of [0,7,8,13]){
     const v4=toV4({...started(),day});
     const migrated=parseSave(JSON.stringify(v4))!;
-    assert.ok(migrated);assert.equal(migrated.version,5);assert.deepEqual(toV4(migrated),v4);
+    assert.ok(migrated);assert.equal(migrated.version,6);assert.deepEqual(toV4(migrated),v4);
     assert.equal(migrated.accounts.communityIncome,0);assert.equal(migrated.accounts.communityCosts,0);
     assert.equal(migrated.contactsToday,0);assert.equal(migrated.fundraisersUsed,0);
     assert.ok(migrated.members.every(member=>member.morale===70&&member.lastContactDay===-1));
@@ -474,6 +475,196 @@ test('v5 validation rejects forged contact counters, missing decisions, repeated
     {...resolved,money:resolved.money+paid.cost,accounts:{...resolved.accounts,communityCosts:0}},
     {...resolved,day:14,pendingDecision:null},
     {...started(),fundraisersUsed:1},
+  ];
+  for(const value of corrupt) assert.equal(parseSave(JSON.stringify(value)),null);
+});
+
+
+
+function asV5(state:State):Record<string,unknown> {
+  const {identity,history,career,...previous}=state;
+  return {...previous,version:5};
+}
+function failAdmission(state:State):State {
+  let s=state;
+  for(const role of CREATIVE_ROLES) s=hireCreative(s,CREATIVE_CANDIDATES.find(candidate=>candidate.role===role&&candidate.level==='Barrial')!.id);
+  s=startSeason(s);
+  while(s.day<EVENTS[0].day) s=performAction(resolveFreeDecision(s),'rest');
+  s={...s,members:s.members.map(member=>({...member,energy:0}))};
+  return performAction(s,'compete');
+}
+
+test('identity accepts accented names and normalized spaces without changing the game model',()=>{
+  const s=createGame(),before=JSON.stringify(s);
+  const renamed=setIdentity(s,{name:'  La   Última  Ronda  ',barrio:'  Peñarol  '});
+  assert.deepEqual(renamed.identity,{name:'La Última Ronda',barrio:'Peñarol'});
+  assert.equal(renamed.money,s.money);assert.equal(renamed.day,s.day);assert.equal(renamed.seed,s.seed);
+  assert.deepEqual(renamed.accounts,s.accounts);assert.deepEqual(renamed.members,s.members);
+  assert.deepEqual(getStats(renamed),getStats(s));assert.equal(JSON.stringify(s),before);save(renamed);
+  for(const name of ['A','x'.repeat(41),'<script>','Una\u0000murga','Dos\nfilas','Oculto\u202e']){
+    const result=setIdentity(s,{name,barrio:'Cordón'});assert.deepEqual(result.identity,s.identity);
+    assert.equal(validateIdentity({name,barrio:'Cordón'}).valid,false);
+  }
+  for(const barrio of ['','X','<b>Centro</b>','x'.repeat(41)]) assert.equal(validateIdentity({name:'La Murga',barrio}).valid,false);
+  assert.equal(validateIdentity({name:'Los del Sur',barrio:'Parque Rodó'}).valid,true);
+  const finished=setIdentity(win(),{name:'La Ronda',barrio:'Unión'});
+  assert.equal(getStandings(finished).find(row=>row.isPlayer)!.name,'La Ronda');
+});
+
+test('public season reports conceal every jury mark, total and rank until fallos, including eliminated groups',()=>{
+  const first=performAction(fixture(EVENTS[1].day),'compete'),during=getSeasonReport(first);
+  assert.equal(during.scoresPublic,false);assert.equal(during.results[0].score,70);
+  assert.equal(during.results[1].score,null);assert.equal(during.contestTotal,null);
+  assert.equal(during.contestAverage,null);assert.equal(during.rank,null);
+  assert.deepEqual(Object.keys(during.roster[0]).sort(),['experience','fame','id','name','role']);
+  const weak=fixture(EVENTS[2].day,[10]);weak.members.forEach(member=>member.energy=0);
+  const eliminated=performAction(weak,'compete'),sealed=getSeasonReport(eliminated);
+  assert.equal(sealed.outcome,'second-round');assert.equal(sealed.scoresPublic,false);
+  assert.ok(sealed.results.slice(1).every(result=>result.score===null));assert.equal(sealed.rank,null);
+  assert.deepEqual(getSeasonHistory(eliminated),[]);
+  const revealed=getSeasonReport(revealEliminatedFallos(eliminated));
+  assert.equal(revealed.scoresPublic,true);
+  assert.deepEqual(revealed.results.slice(1).map(result=>result.score),eliminated.results.slice(1).map(result=>result.score));
+  const ended=win(),final=getSeasonReport(ended);
+  assert.equal(final.scoresPublic,true);assert.equal(final.rank,1);assert.equal(final.contestTotal,getContestSummary(ended).contestTotal);
+  assert.equal(getSeasonReport({...fixture(EVENTS[3].day,[75,75]),status:'playing'}).rank,null);
+});
+
+test('successful annual closure archives the old identity, roster and cash before any renewal or growth',()=>{
+  const ended=setIdentity(win(),{name:'La Primera Esquina',barrio:'La Teja'}),before=JSON.stringify(ended);
+  const next=nextSeason(ended),archive=getSeasonHistory(next)[0];
+  assert.equal(archive.season,ended.season);assert.equal(archive.outcome,'champion');
+  assert.equal(archive.closingCash,ended.money);assert.equal(archive.cash,ended.money);
+  assert.deepEqual(archive.accounts,ended.accounts);assert.equal(archive.reputation,ended.reputation);assert.equal(archive.fans,ended.fans);
+  assert.deepEqual(archive.identity,ended.identity);
+  assert.deepEqual(archive.roster.map(m=>[m.id,m.experience,m.fame]),ended.members.map(m=>[m.id,m.experience,m.fame]));
+  assert.equal(archive.contestTotal,getContestSummary(ended).contestTotal);
+  assert.equal(next.career.completedSeasons,1);assert.equal(next.career.championships,1);assert.equal(next.career.finals,1);
+  assert.equal(JSON.stringify(ended),before);save(next);
+  const renamed=setIdentity(next,{name:'Otra Identidad',barrio:'Buceo'});
+  assert.equal(renamed.history[0].identity.name,'La Primera Esquina');
+  assert.equal(next.history[0].identity.name,'La Primera Esquina');
+  assert.deepEqual(nextSeason(next).history,next.history);
+  assert.equal(nextSeason(next).money,next.money);assert.equal(nextSeason(next).members[0].experience,next.members[0].experience);
+  assert.deepEqual(nextSeason(ended),next,'repeating from the same immutable input cannot accumulate rewards');
+});
+
+test('archiving an eliminated year publishes its results only after a successful annual transition',()=>{
+  const weak=fixture(EVENTS[2].day,[10]);weak.members.forEach(member=>member.energy=0);
+  const ended=performAction(weak,'compete');
+  assert.equal(getSeasonReport(ended).contestTotal,null);
+  const next=nextSeason(ended),archive=getSeasonHistory(next)[0];
+  assert.equal(archive.outcome,'second-round');assert.equal(archive.scoresPublic,true);
+  assert.equal(archive.roundsCompleted,2);assert.equal(archive.contestTotal,getContestSummary(ended).contestTotal);
+  assert.equal(next.career.finals,0);assert.equal(next.career.championships,0);save(next);
+  const broke=cash({...ended,members:ended.members.map(member=>({...member,cost:5000000}))},0);
+  const rejected=nextSeason(broke);
+  assert.equal(rejected.season,broke.season);assert.equal(rejected.money,broke.money);
+  assert.deepEqual(rejected.history,broke.history);assert.deepEqual(rejected.career,broke.career);
+  assert.deepEqual(rejected.members,broke.members);assert.equal(getSeasonReport(rejected).contestTotal,null);
+});
+
+test('public getters and subsequent states cannot mutate archived identities, financial accounts or roster snapshots',()=>{
+  const next=nextSeason(setIdentity(win(),{name:'La Memoria',barrio:'Aguada'}));
+  const saved=JSON.stringify(next);
+  const history=getSeasonHistory(next),report=getSeasonReport(next),progress=getRosterProgress(next),career=getCareerSummary(next);
+  history[0].identity.name='Alterada';history[0].accounts.opening=0;history[0].roster[0].experience=0;history[0].results[1].score=0;
+  report.identity.name='Tampoco';report.accounts.opening=0;report.roster[0].fame=0;
+  progress[0].name='No cambia';career.championships=999;
+  assert.equal(JSON.stringify(next),saved);
+  const changed=setIdentity(next,{name:'Nueva Etapa',barrio:'Cerrito'});
+  changed.history[0].roster[0].name='Copia ajena';
+  assert.notEqual(next.history[0].roster[0].name,'Copia ajena');
+});
+
+test('roster comparisons use only public experience and fame for matching IDs from the latest closure',()=>{
+  assert.ok(getRosterProgress(createGame()).every(row=>row.previousExperience===null&&row.experienceDelta===null&&row.fameDelta===null));
+  let next=nextSeason(win());
+  const previous=next.history[0].roster[0],current=next.members[0],row=getRosterProgress(next)[0];
+  assert.equal(row.previousExperience,previous.experience);
+  assert.equal(row.experienceDelta,Math.round((current.experience-previous.experience)*10)/10);
+  assert.equal(row.fameDelta,current.fame-previous.fame);
+  assert.ok(row.experienceDelta!>0);assert.ok(row.fameDelta!>0);
+  const candidate=next.candidates.find(member=>member.role===current.role&&getRecruitmentQuote(next,member.id).accepted)!;
+  next=recruit(next,candidate.id,current.id);
+  const newRow=getRosterProgress(next).find(member=>member.id===candidate.id)!;
+  assert.equal(newRow.previousExperience,null);assert.equal(newRow.previousFame,null);assert.equal(newRow.experienceDelta,null);save(next);
+  assert.ok(!Object.hasOwn(newRow,'voice')&&!Object.hasOwn(newRow,'skill')&&!Object.hasOwn(newRow,'charisma'));
+});
+
+test('admission exemptions are null in both public reports and archives and never count toward contest points',()=>{
+  let s=nextSeason(win());
+  for(const role of CREATIVE_ROLES) s=hireCreative(s,CREATIVE_CANDIDATES.find(candidate=>candidate.role===role&&candidate.level==='Barrial')!.id);
+  s=startSeason(s);
+  while(s.day<EVENTS[0].day) s=performAction(resolveFreeDecision(s),'rest');
+  s=performAction(s,'compete');
+  assert.equal(getSeasonReport(s).results[0].score,null);
+  // Valid final fixture of the same directly admitted second campaign.
+  s={...s,day:EVENTS[3].day,results:[s.results[0],{name:EVENTS[1].name,score:85,passed:true},{name:EVENTS[2].name,score:85,passed:true}],
+    rivals:s.rivals.map(rival=>({...rival,scores:[50,50]}))};
+  s.resolvedDecisions=[];s.decisionHistory=[];
+  for(const day of DECISION_DAYS){
+    const atDay={...s,day,pendingDecision:null};
+    const resolved=resolveFreeDecision(atDay);
+    s.resolvedDecisions=resolved.resolvedDecisions;s.decisionHistory=resolved.decisionHistory;
+  }
+  s.pendingDecision=null;s=performAction(s,'compete');assert.equal(s.status,'won');save(s);
+  const archive=nextSeason(s).history.at(-1)!;
+  assert.equal(archive.admissionExempt,true);assert.equal(archive.results[0].score,null);
+  assert.equal(archive.contestTotal,Math.round(archive.results.slice(1).reduce((sum,result)=>sum+result.score!,0)*10)/10);
+});
+
+test('v5 migration preserves every old field and begins counters at the current year without inventing archives',()=>{
+  const old={...started(),season:17};
+  const v5=asV5(old),migrated=parseSave(JSON.stringify(v5))!;
+  assert.ok(migrated);assert.equal(migrated.version,6);assert.deepEqual(asV5(migrated),v5);
+  assert.deepEqual(migrated.identity,{name:'La Vereda',barrio:'Montevideo'});
+  assert.deepEqual(migrated.history,[]);assert.deepEqual(migrated.career,{sinceSeason:17,completedSeasons:0,championships:0,finals:0});
+  assert.ok(getRosterProgress(migrated).every(row=>row.experienceDelta===null));
+  assert.deepEqual(getCareerSummary(migrated),{sinceSeason:17,completedSeasons:0,championships:0,finals:0,retainedSeasons:0,historyLimit:50,omittedSeasons:0});
+  save(migrated);
+  const finished=win();
+  const ended=asV5({...finished,season:17,costumeProposalId:finished.costumeProposalId!.replace('-s1-','-s17-')});
+  const continued=nextSeason(parseSave(JSON.stringify(ended))!);
+  assert.equal(continued.history.length,1);assert.equal(continued.history[0].season,17);
+  assert.equal(continued.career.completedSeasons,1);assert.equal(continued.career.sinceSeason,17);save(continued);
+});
+
+test('only the latest 50 detailed years are retained while recorded lifetime counts remain accurate',()=>{
+  let state=createGame();
+  for(let year=1;year<=52;year++){
+    state=setIdentity(state,{name:`Los Años ${year}`,barrio:'Prado'});
+    const ended=failAdmission(state);assert.equal(ended.status,'lost');assert.equal(ended.day,EVENTS[0].day);
+    state=nextSeason(ended);
+    assert.equal(state.career.completedSeasons,year);
+  }
+  assert.equal(HISTORY_LIMIT,50);assert.equal(state.history.length,50);
+  assert.equal(state.history[0].season,3);assert.equal(state.history.at(-1)!.season,52);
+  assert.equal(state.history[0].identity.name,'Los Años 3');
+  assert.deepEqual(getCareerSummary(state),{sinceSeason:1,completedSeasons:52,championships:0,finals:0,retainedSeasons:50,historyLimit:50,omittedSeasons:2});
+  assert.ok(JSON.stringify(state).length<600000);save(state);
+});
+
+test('archive validation rejects hidden member fields, inconsistent financial totals, duplicate years and forged counters',()=>{
+  const state=nextSeason(win()),entry=state.history[0];
+  const corrupt:unknown[]=[
+    {...state,identity:{name:'<script>',barrio:'Cordón'}},
+    {...state,identity:{name:' La Vereda ',barrio:'Montevideo'}},
+    {...state,career:{...state.career,completedSeasons:2}},
+    {...state,career:{...state.career,championships:0}},
+    {...state,history:[]},
+    {...state,history:[entry,entry]},
+    {...state,history:[{...entry,season:state.season}]},
+    {...state,history:[{...entry,identity:{...entry.identity,barrio:'X'}}]},
+    {...state,history:[{...entry,closingCash:entry.closingCash+1}]},
+    {...state,history:[{...entry,accounts:{...entry.accounts,technical:entry.accounts.technical+1}}]},
+    {...state,history:[{...entry,roster:entry.roster.map((member,index)=>index?member:{...member,skill:99})}]},
+    {...state,history:[{...entry,roster:[entry.roster[1],...entry.roster.slice(1)]}]},
+    {...state,history:[{...entry,results:entry.results.map((result,index)=>index===1?{...result,score:null}:result)}]},
+    {...state,history:[{...entry,contestTotal:0}]},
+    {...state,history:[{...entry,scoresPublic:false}]},
+    {...state,history:[{...entry,rank:2}]},
+    {...state,history:[{...entry,outcome:'in-progress'}]},
   ];
   for(const value of corrupt) assert.equal(parseSave(JSON.stringify(value)),null);
 });

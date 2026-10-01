@@ -8,3 +8,10 @@
 /* Keep the game behind a modal still while its content scrolls. */
 html:has(dialog[open]) { overflow: hidden; }
 dialog { overscroll-behavior: contain; }
+
+.identity-shortcut { width: 100%; margin: 0 0 16px; justify-content: flex-start; font-size: 11px; text-align: left; overflow-wrap: anywhere; }
+#murga-name { text-transform: uppercase; overflow-wrap: anywhere; }
+.world-caption > span:not(.caption-line):not(.scene-stamp) { min-width: 0; }
+.world-caption small { line-height: 1.5; overflow-wrap: anywhere; }
+.community-page .team-summary { white-space: normal; overflow-wrap: anywhere; }
+.market-banner h3, .season-result h3, .creative-brief p { overflow-wrap: anywhere; }

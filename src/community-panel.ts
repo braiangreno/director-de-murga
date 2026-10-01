@@ -61,7 +61,8 @@ export function communityPanel(state: State): string {
   const pending = getPendingDecision(state);
   const history = getDecisionHistory(state).slice().sort((a, b) => b.day - a.day);
   return `<div class="community-page">
-    <header class="community-cover"><span class="community-kicker">LA SEDE TAMBIÉN SE CUIDA</span><h3>Detrás del coro,<br>un barrio.</h3><p>Organizá la ayuda, escuchá al elenco y hacé lugar para las decisiones que sostienen a La Vereda.</p></header>
+    <header class="community-cover"><span class="community-kicker">LA SEDE TAMBIÉN SE CUIDA</span><h3>Detrás del coro,<br>un barrio.</h3><p>Organizá la ayuda, escuchá al elenco y hacé lugar para las decisiones que sostienen a ${escape(state.identity.name)}.</p></header>
+    <button type="button" class="outline-button team-summary" data-open="trayectoria">Historia de ${escape(state.identity.name)} · ${escape(state.identity.barrio)}</button>
     <section class="community-morale" data-tone="${moraleTone}" aria-label="Ánimo del elenco">
       <div class="community-morale-heading"><h4>Ánimo del elenco</h4><strong>${morale}<small>/100</small></strong></div>
       <div class="community-morale-meter" role="meter" aria-label="Ánimo colectivo" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${morale}"><span style="width:${morale}%"></span></div>

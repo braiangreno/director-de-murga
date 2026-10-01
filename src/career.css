@@ -1,0 +1,165 @@
+.career-page, .identity-page {
+  --career-ink: var(--ink, #25183f);
+  --career-muted: var(--muted, #6a5579);
+  --career-line: #d8c6e2;
+  --career-teal: #00776b;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--career-ink);
+}
+.career-page *, .identity-page * { min-width: 0; }
+.career-page h3, .career-page h4, .identity-page h3 { font-family: 'Playfair Display', Georgia, serif; font-weight: 600; }
+.career-page p, .identity-page p { line-height: 1.65; }
+.career-page button, .identity-page button { min-height: 44px; white-space: normal; }
+.career-icon { width: 21px; height: 21px; flex: none; }
+.career-kicker { font-size: 9px; font-weight: 700; letter-spacing: 1.3px; line-height: 1.5; }
+.career-cover { display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: start; gap: 13px; position: relative; padding: 24px; background: #2d194a; color: #fff8ef; border-radius: 13px; border-bottom: 5px solid #ffd447; }
+.career-cover-mark { display: grid; place-items: center; width: 43px; height: 43px; border: 1px solid #ffd44780; color: #ffd447; border-radius: 50%; margin-top: 3px; }
+.career-cover-mark .career-icon { width: 23px; height: 23px; }
+.career-cover .career-kicker { color: #ffd447; }
+.career-cover h3 { font-size: clamp(29px, 4vw, 37px); line-height: 1.12; margin: 7px 0 7px; letter-spacing: -.6px; }
+.career-cover p { margin: 0; font-size: 12px; color: #e9d7f1; }
+.career-identity-button { grid-column: 2; justify-self: start; display: inline-flex; align-items: center; gap: 7px; padding: 9px 12px; border: 1px solid #b79bcc; border-radius: 7px; color: #fff8ef; background: transparent; font-size: 10px; }
+.career-identity-button:hover { background: #59316f; }
+.career-identity-button .career-icon { width: 15px; height: 15px; }
+.career-since { font-size: 10px; color: var(--career-muted); margin: 12px 0; }
+.career-counters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--career-line); border-radius: 10px; overflow: hidden; margin: 0 0 20px; }
+.career-counters > div { padding: 13px 12px; background: #f1e8f8; }
+.career-counters > div + div { border-left: 1px solid var(--career-line); }
+.career-counters dt { font-size: 10px; color: var(--career-muted); line-height: 1.5; }
+.career-counters dd { margin: 5px 0 0; font-size: 28px; font-weight: 600; font-variant-numeric: tabular-nums; display: flex; gap: 7px; align-items: center; }
+.career-counters .career-championships { background: #fff0bd; }
+.career-championships dd .career-icon { color: #8d550e; width: 17px; height: 17px; }
+.career-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.career-section-heading .career-kicker { color: #9d245f; }
+.career-section-heading h4 { font-size: 27px; margin: 6px 0 0; line-height: 1.15; }
+.career-current { border: 1px solid var(--career-line); border-top: 4px solid #db247b; border-radius: 11px; padding: 20px; background: #fffdf9; }
+.career-outcome { display: inline-block; padding: 6px 8px; border-radius: 5px; font-size: 10px; font-weight: 600; color: #663e7c; background: #ece0f6; line-height: 1.4; text-align: center; }
+.career-outcome[data-outcome=champion] { color: #634207; background: #ffdf68; }
+.career-outcome[data-outcome=finalist] { color: #00665d; background: #d7f2e9; }
+.career-outcome[data-outcome=not-admitted], .career-outcome[data-outcome=second-round] { color: #744757; background: #f5e4e8; }
+.career-support { display: flex; gap: 24px; margin: 0 0 17px; }
+.career-support dt { font-size: 10px; color: var(--career-muted); }
+.career-support dd { margin: 4px 0 0; font-weight: 600; font-size: 20px; font-variant-numeric: tabular-nums; }
+.career-support dd small { font-size: 10px; font-weight: 400; color: var(--career-muted); }
+.career-money-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 0; padding: 15px 0 11px; border-top: 1px dashed var(--career-line); }
+.career-money-grid dt { font-size: 10px; color: var(--career-muted); }
+.career-money-grid dd { font-size: clamp(17px, 2.2vw, 23px); line-height: 1.3; font-weight: 600; margin: 6px 0 0; font-variant-numeric: tabular-nums; }
+.career-positive { color: var(--career-teal); }
+.career-negative { color: #ab3d37; }
+.career-finance-note { font-size: 10px; color: var(--career-muted); margin: 0 0 12px; }
+.career-cash-line { display: flex; justify-content: space-between; gap: 12px; background: #f3edf7; padding: 11px 12px; border-radius: 7px; margin: 0; }
+.career-cash-line > div { flex: 1; }
+.career-cash-line > div:last-child { text-align: right; }
+.career-cash-line dt { color: var(--career-muted); font-size: 10px; }
+.career-cash-line dd { margin: 4px 0 0; font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.career-page summary { cursor: pointer; list-style: none; min-height: 48px; }
+.career-page summary::-webkit-details-marker { display: none; }
+.career-page summary:focus-visible { outline: 3px solid #c04b73; outline-offset: 3px; border-radius: 5px; }
+.career-page summary > .career-icon:last-child { width: 17px; height: 17px; color: #9d245f; }
+.career-page details[open] > summary > .career-icon:last-child { transform: rotate(90deg); }
+.career-results { margin-top: 17px; border-top: 1px solid var(--career-line); }
+.career-results > summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12px; font-weight: 600; padding: 8px 0; }
+.career-performance { padding-top: 5px; }
+.career-rounds { list-style: none; padding: 0; margin: 0; }
+.career-rounds li { display: flex; justify-content: space-between; align-items: center; gap: 16px; border-bottom: 1px solid #eadfeb; padding: 10px 0; }
+.career-rounds li > span { font-size: 12px; }
+.career-rounds li > span small { display: block; margin-top: 3px; font-size: 9px; color: var(--career-muted); }
+.career-rounds li > strong { font-size: 16px; text-align: right; font-variant-numeric: tabular-nums; }
+.career-rounds li > strong small { font-size: 9px; font-weight: 400; color: var(--career-muted); }
+.career-rounds .career-reserved { font-size: 10px; font-weight: 500; color: var(--career-muted); }
+.career-total { display: flex; gap: 28px; margin: 15px 0 8px; }
+.career-total span { display: block; font-size: 10px; color: var(--career-muted); }
+.career-total strong { display: block; font-family: 'Playfair Display', Georgia, serif; font-size: 28px; margin-top: 3px; }
+.career-total strong small { font-family: 'DM Sans', Arial, sans-serif; font-size: 11px; font-weight: 400; }
+.career-sealed, .career-direct-entry, .career-quiet { font-size: 11px; color: var(--career-muted); margin: 9px 0 3px; }
+.career-direct-entry { color: #00685f; background: #e1f3ec; padding: 9px 10px; border-radius: 6px; }
+.career-archive { margin-top: 28px; }
+.career-count { font-size: 10px; color: var(--career-muted); flex: none; }
+.career-years { display: grid; gap: 10px; }
+.career-year { border: 1px solid var(--career-line); border-radius: 10px; background: #fffdf9; overflow: hidden; }
+.career-year > summary { display: flex; align-items: center; gap: 12px; padding: 15px; }
+.career-year-number { display: grid; place-items: center; width: 36px; height: 40px; flex: none; background: #f2e7f8; border-radius: 7px; color: #885697; font-family: 'Playfair Display', Georgia, serif; font-size: 20px; }
+.career-year-title { flex: 1; }
+.career-year-title strong { display: block; font-size: 13px; }
+.career-year-title small { display: block; font-size: 10px; color: var(--career-muted); margin-top: 4px; line-height: 1.5; }
+.career-year > summary .career-outcome { max-width: 112px; }
+.career-year-content { padding: 16px 20px 18px; border-top: 1px solid var(--career-line); background: repeating-linear-gradient(0deg, #b9a6c808 0 1px, transparent 1px 24px), #fffdf9; }
+.career-empty { padding: 23px 19px; border: 1px dashed #c3a9d2; border-radius: 11px; background: #f7effa; text-align: center; }
+.career-empty-icon { display: block; color: #a32a65; font-size: 26px; }
+.career-empty h4 { font-size: 25px; margin: 8px 0 7px; line-height: 1.15; }
+.career-empty p { font-size: 12px; color: var(--career-muted); max-width: 45ch; margin: 0 auto; }
+.career-history-note { font-size: 10px; color: var(--career-muted); margin: 12px 0 17px; }
+.career-roster { margin-top: 24px; border: 1px solid var(--career-line); border-radius: 10px; overflow: hidden; }
+.career-roster > summary { display: flex; align-items: center; gap: 12px; padding: 16px; background: #e6f4ef; }
+.career-roster > summary > span:first-child { flex: 1; }
+.career-roster > summary strong { display: block; font-family: 'Playfair Display', Georgia, serif; font-size: 24px; font-weight: 600; line-height: 1.15; }
+.career-roster > summary small { display: block; margin-top: 5px; font-size: 10px; color: #486a63; }
+.career-roster-content { padding: 0 16px 7px; }
+.career-roster-list { list-style: none; padding: 0; margin: 0; }
+.career-roster-list li { display: grid; grid-template-columns: minmax(0, 1fr) 100px 100px; align-items: center; gap: 12px; padding: 14px 0; border-top: 1px solid #e1d4e7; }
+.career-member-name strong { display: block; font-size: 12px; line-height: 1.4; }
+.career-member-name small { display: block; color: var(--career-muted); font-size: 10px; margin-top: 4px; }
+.career-member-stat { text-align: right; }
+.career-member-stat > span:first-child { display: block; font-size: 9px; color: var(--career-muted); }
+.career-member-stat > strong { display: block; font-size: 16px; font-variant-numeric: tabular-nums; margin: 4px 0; }
+.career-member-stat > strong small { font-size: 9px; font-weight: 400; color: var(--career-muted); }
+.career-delta { display: inline-block; font-size: 10px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.career-unknown, .career-unchanged { color: var(--career-muted); font-size: 9px; font-weight: 400; }
+
+.identity-intro { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 24px; }
+.identity-mark { display: grid; place-items: center; width: 42px; height: 42px; flex: none; background: #ffd447; border-radius: 9px; color: #43283d; transform: rotate(-6deg); }
+.identity-intro .career-kicker { color: #9e2460; }
+.identity-intro h3 { font-size: 31px; line-height: 1.15; margin: 7px 0 10px; }
+.identity-intro p { font-size: 12px; color: var(--career-muted); margin: 0; }
+.identity-form { padding: 21px; border: 1px solid var(--career-line); border-radius: 11px; background: #fffdf9; }
+.identity-form label { display: block; font-size: 12px; font-weight: 600; margin: 0 0 9px; }
+.identity-form input { display: block; width: 100%; max-width: 100%; min-height: 48px; padding: 11px 12px; font: inherit; font-size: 16px; border: 1px solid #b89cc9; border-radius: 7px; color: var(--career-ink); background: #fffaf3; }
+.identity-form input:focus-visible { outline: 3px solid #1c9d9140; outline-offset: 2px; border-color: #008477; }
+.identity-field-help { font-size: 10px; color: var(--career-muted); margin: 7px 0 22px; }
+.identity-error { font-size: 12px; color: #8e2725; background: #fff0e9; border-left: 3px solid #ba5143; padding: 10px 12px; margin: 0 0 16px; }
+.identity-error:empty { display: none; }
+.identity-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.identity-actions button { width: 100%; }
+.identity-note { font-size: 11px; color: var(--career-muted); padding-left: 12px; border-left: 2px solid #c3a5d4; margin: 18px 0 0; }
+
+@media (max-width: 600px) {
+  .career-cover { grid-template-columns: 34px minmax(0, 1fr); padding: 19px 15px; gap: 10px; }
+  .career-cover-mark { width: 34px; height: 34px; }
+  .career-cover-mark .career-icon { width: 19px; height: 19px; }
+  .career-cover h3 { font-size: 30px; }
+  .career-cover .career-kicker { font-size: 8px; }
+  .career-counters > div { padding: 11px 8px; }
+  .career-counters dt { font-size: 9px; }
+  .career-counters dd { font-size: 26px; }
+  .career-current { padding: 16px 13px; }
+  .career-section-heading { align-items: flex-start; gap: 9px; }
+  .career-section-heading h4 { font-size: 25px; }
+  .career-section-heading .career-kicker { font-size: 8px; }
+  .career-section-heading > .career-outcome { max-width: 105px; }
+  .career-money-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .career-money-grid .career-net { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; border-top: 1px solid #eee0ec; padding-top: 9px; }
+  .career-money-grid .career-net dd { margin: 0; font-size: 22px; }
+  .career-money-grid dd { font-size: 19px; }
+  .career-cash-line { padding: 10px; }
+  .career-cash-line dd { font-size: 14px; }
+  .career-year > summary { display: grid; grid-template-columns: 32px minmax(0, 1fr) 17px; gap: 7px 10px; padding: 13px 12px; }
+  .career-year-number { width: 32px; grid-row: 1 / 3; }
+  .career-year-title { grid-column: 2; }
+  .career-year > summary > .career-outcome { grid-column: 2; justify-self: start; max-width: 100%; font-size: 9px; }
+  .career-year > summary > .career-icon:last-child { grid-column: 3; grid-row: 1 / 3; }
+  .career-year-content { padding: 15px 13px; }
+  .career-roster > summary { padding: 14px 12px; }
+  .career-roster-content { padding: 0 12px 5px; }
+  .career-roster-list li { grid-template-columns: minmax(0, 1fr) 70px 70px; gap: 8px; }
+  .career-member-name strong { font-size: 11px; }
+  .career-member-stat > strong { font-size: 15px; }
+  .career-unknown { font-size: 8px; }
+  .identity-intro { gap: 10px; }
+  .identity-mark { width: 34px; height: 34px; }
+  .identity-intro h3 { font-size: 28px; }
+  .identity-intro .career-kicker { font-size: 8px; }
+  .identity-form { padding: 16px 13px; }
+  .identity-actions { grid-template-columns: 1fr; gap: 10px; }
+  .identity-actions button[type=submit] { grid-row: 1; }
+}
