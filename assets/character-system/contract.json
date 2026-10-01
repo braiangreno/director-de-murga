@@ -1,0 +1,139 @@
+{
+  "schemaVersion": 1,
+  "systemId": "murga-human-v1",
+  "status": "implemented-playable-wardrobe-collection",
+  "decision": "One shared body; individual faces, hair, uniform height scale and colors.",
+  "referenceCharacter": "Mila the Mighty",
+  "canonicalBody": {
+    "file": "public/models/character-system/canonical.glb",
+    "approved": true,
+    "bodyTypes": 1,
+    "referenceHeightMetres": 1.7,
+    "heightDefinition": "Feet to bare scalp; exclude hair and hats. Exported body bounds are 0 to 1.70000005 m.",
+    "topologyHash": "36b155fd276c3bb2e77afcf00f4a2de5bde540c20cb64e1917f05c595e432984",
+    "restPose": "A-pose specified by canonical source bone transforms",
+    "frame": {
+      "up": "+Y",
+      "front": "+Z",
+      "origin": "feet",
+      "units": "metres"
+    },
+    "heightVariation": "Uniform scale on CharacterRoot, including body, clothes, head, hair and hat. Never scale only Y or fit the body to the dressed bounding box.",
+    "source": "scripts/build-canonical-character.mjs",
+    "engineeringValidation": "44 automated application tests passed, including distinct geometry for eight outfits, 96 costume/palette combinations, shared-rig deformation, four facial forms and persistent per-member selections.",
+    "artApproval": "Base style accepted by the user before requesting the expanded collection."
+  },
+  "rig": {
+    "id": "murga-rig-v1",
+    "file": "public/models/character-system/canonical.glb",
+    "bindPoseHash": "6e75ecc5b5975716d6a10bcc965ec201e642a53684214eb377760e7c447ef70c",
+    "maxInfluencesPerVertex": 4,
+    "sharedRequirements": [
+      "joint names",
+      "joint hierarchy",
+      "rest transforms",
+      "inverse bind matrices",
+      "joint mapping",
+      "common model space"
+    ],
+    "sockets": [
+      "head_hat",
+      "hand_l",
+      "hand_r",
+      "back_instrument"
+    ],
+    "jointCount": 20
+  },
+  "slots": {
+    "body": "One approved skinned body shared by every character.",
+    "face": "Variations of one facial base, preserving neck seam, cranial envelope, face UV and expression topology.",
+    "hair": "Separate object following the head, with an explicit hat-compatible variant.",
+    "outfit": "Separate skinned garment fitted and weight-painted on the canonical body and rig.",
+    "hat": "Rigid accessory with a standardized rim and attachment at head_hat.",
+    "makeup": "RGBA face overlay using one shared face UV layout.",
+    "palette": "Independent channels for cloth, trousers, fuchsia ruffles, red fabric, burgundy lining, gold trim and skin. Fabric colors do not change facial features."
+  },
+  "runtimeSelection": [
+    "bodyId",
+    "faceId",
+    "hairId",
+    "outfitId",
+    "hatId",
+    "makeupId",
+    "paletteId",
+    "heightScale",
+    "skinToneId",
+    "hairColorId"
+  ],
+  "productionGate": {
+    "requiresApprovedCanonicalBody": true,
+    "requiresApprovedFit": true,
+    "requiresMatchingBodyVersion": true,
+    "requiresMatchingRigBindPose": true,
+    "requiresMatchingFaceUvForMakeup": true,
+    "requiresHatHairVariant": true,
+    "coverageMasks": "Optional final optimization for areas always hidden; never replace fitting, skinning or pose checks.",
+    "checks": [
+      "front, side and back",
+      "neutral pose",
+      "arms up",
+      "elbows bent",
+      "singing",
+      "walking on stage",
+      "director gestures",
+      "bombo, redoblante and platillos",
+      "minimum and maximum allowed uniform scale",
+      "every approved head and hat/hair pair"
+    ],
+    "enforcement": "Release-art approval gate. The playable development baseline is enabled for user review."
+  },
+  "firstAcceptanceMilestone": {
+    "bodyCount": 1,
+    "faceCount": 2,
+    "hairCount": 2,
+    "outfitCount": 1,
+    "hatCount": 1,
+    "makeupCount": 1,
+    "result": "Two visibly different characters wear the same clothing and animations, at different uniform scales, without new per-character costume fitting."
+  },
+  "currentAssets": {
+    "mila": "Visual reference and legacy static prototype; no skeleton or skin weights.",
+    "traje-esmeralda-01": "Design draft. Fit rejected; not production-approved.",
+    "sombrero-esmeralda-01": "Design draft; must be rebuilt or fitted to the standard head/hat socket.",
+    "maquillaje-blanco-rulos-01": "Works on Mila UV only; must be rebaked to the canonical facial UV before general reuse.",
+    "canonical": "Shared animated stylized body with eight outfits authored in the same model space. The expanded wardrobe preserves the base style accepted by the user. Actual GLB and reproducible source included."
+  },
+  "runtime": {
+    "catalog": "public/models/character-system/catalog.json",
+    "ensembleInstances": 17,
+    "sharedGeometry": true,
+    "independentSkeletons": true,
+    "sameSkeletonWithinCharacter": true,
+    "heightScaleLimits": [
+      0.9,
+      1.1
+    ],
+    "source": "src/character-system.ts",
+    "saveKey": "director-de-murga-character-system-v1",
+    "bodyCoverageMasks": false
+  },
+  "implementedMilestone": {
+    "bodyCount": 1,
+    "faceCount": 4,
+    "hairCount": 2,
+    "outfitCount": 8,
+    "hatCount": 1,
+    "makeupCount": 1,
+    "palettes": 12,
+    "outfitPaletteCombinations": 96,
+    "animations": 7,
+    "ensembleInstances": 17
+  },
+  "assetMetrics": {
+    "bytes": 4303968,
+    "trianglesAllVariants": 90364,
+    "verticesAllVariants": 61826,
+    "visibleTrianglesPerDressedCharacter": [18004, 20452],
+    "note": "Package totals include eight mutually exclusive outfits, faces and hairs; one of each is displayed. The approved base outfit slightly exceeds the 20000 visible-triangle target."
+  }
+}

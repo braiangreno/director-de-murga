@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "status": "prototype-fit-rejected",
+  "productionEligible": false,
+  "profile": "mila-v1",
+  "bodyUrl": "/models/components/mila-modular.glb",
+  "bodyHeight": 1.7,
+  "frame": { "up": "+Y", "front": "+Z", "origin": "feet", "units": "metres" },
+  "slots": {
+    "outfit": [{ "id": "traje-esmeralda-01", "label": "Traje esmeralda", "url": "/models/wardrobe/traje-esmeralda-01.glb" }],
+    "hat": [{ "id": "sombrero-esmeralda-01", "label": "Sombrero esmeralda y fucsia", "url": "/models/wardrobe/sombrero-esmeralda-01.glb" }],
+    "makeup": [{ "id": "maquillaje-blanco-rulos-01", "label": "Maquillaje blanco con rulos", "url": "/models/wardrobe/maquillaje-blanco-rulos-01.webp", "material": "MilaFace", "uv": "TEXCOORD_0", "colorSpace": "srgb", "flipY": false }]
+  },
+  "compatibility": "Prepared for Mila's current static pose. Different bodies require fitting; later skeletal animation requires shared skinning for clothing."
+}

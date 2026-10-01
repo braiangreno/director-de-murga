@@ -1,0 +1,162 @@
+.community-page,
+.murga-decision {
+  --community-ink: var(--ink, #25183f);
+  --community-paper: var(--paper, #fff8ef);
+  --community-pink: var(--pink, #db247b);
+  --community-teal: #007d75;
+  --community-muted: #6a5579;
+  min-width: 0;
+  color: var(--community-ink);
+  overflow-wrap: anywhere;
+}
+
+.community-page *,
+.murga-decision * { min-width: 0; }
+
+.community-page h3,
+.community-page h4,
+.murga-decision h3,
+.murga-decision h4 {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-weight: 600;
+}
+
+.community-page p,
+.murga-decision p { line-height: 1.65; overflow-wrap: anywhere; }
+
+.community-page button,
+.murga-decision button { min-height: 44px; white-space: normal; }
+
+.community-icon { width: 24px; height: 24px; flex: none; }
+.community-kicker { font-size: 9px; font-weight: 700; letter-spacing: 1.5px; line-height: 1.5; }
+
+.community-cover {
+  position: relative;
+  padding: 24px;
+  border-radius: 13px;
+  background: #2d194a;
+  color: #fff8ef;
+  overflow: hidden;
+}
+.community-cover::after {
+  content: '';
+  position: absolute;
+  width: 82px;
+  height: 11px;
+  top: 15px;
+  right: -17px;
+  transform: rotate(38deg);
+  background: #ffd447;
+  pointer-events: none;
+}
+.community-cover .community-kicker { color: #f5cf6b; padding-right: 36px; }
+.community-cover h3 { margin: 8px 0 9px; font-size: clamp(26px, 4vw, 34px); line-height: 1.12; letter-spacing: -.6px; }
+.community-cover p { max-width: 49ch; margin: 0; color: #e8d8f1; font-size: 12px; }
+
+.community-morale { margin: 20px 0 15px; }
+.community-morale-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.community-morale-heading h4 { margin: 0; font-size: 21px; }
+.community-morale-heading strong { font-size: 23px; font-variant-numeric: tabular-nums; }
+.community-morale-heading strong small { font-size: 11px; color: var(--community-muted); font-weight: 500; }
+.community-morale-meter { height: 8px; background: #e5d8eb; border-radius: 6px; overflow: hidden; margin: 9px 0; }
+.community-morale-meter > span { display: block; height: 100%; border-radius: inherit; background: var(--community-teal); }
+.community-morale[data-tone=low] .community-morale-meter > span { background: #b54232; }
+.community-morale[data-tone=steady] .community-morale-meter > span { background: #965c08; }
+.community-morale p { font-size: 11px; margin: 0; color: var(--community-muted); }
+
+.community-numbers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid #d8c3e5; border-radius: 10px; overflow: hidden; margin: 0 0 22px; }
+.community-numbers > div { padding: 12px 10px; background: #f3eaf9; }
+.community-numbers > div + div { border-left: 1px solid #d8c3e5; }
+.community-numbers dt { font-size: 10px; line-height: 1.4; color: var(--community-muted); }
+.community-numbers dd { margin: 5px 0 0; font-size: 23px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.community-numbers dd small { font-size: 10px; font-weight: 500; color: var(--community-muted); }
+
+.community-pending { display: flex; align-items: center; gap: 14px; padding: 15px; border: 1px solid #c58229; border-left: 5px solid #ba7f15; border-radius: 9px; background: #fff1ce; margin: 0 0 22px; }
+.community-pending > div { flex: 1; }
+.community-pending strong { display: block; margin-top: 4px; font-size: 14px; line-height: 1.4; }
+.community-pending .community-kicker { color: #785210; }
+.community-pending button { flex: none; background: #3d2455; color: #fff8ef; border-color: #3d2455; }
+
+.community-section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 0 0 12px; }
+.community-section-head h4 { font-size: 23px; margin: 0; }
+.community-section-head > span { font-size: 10px; color: var(--community-muted); }
+.community-activities { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.community-activity { display: flex; flex-direction: column; position: relative; padding: 20px; border: 1px solid #ccb3de; border-top: 5px solid #db247b; border-radius: 10px; background: #fffdf9; }
+.community-activity[data-action-kind=community] { border-top-color: #00857c; }
+.community-activity-heading { display: flex; gap: 11px; align-items: center; }
+.community-activity-heading > span { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 9px; background: #fbe3ef; color: #a8195b; flex: none; }
+.community-activity[data-action-kind=community] .community-activity-heading > span { background: #dff4ec; color: #00665f; }
+.community-activity-heading h4 { font-size: 23px; line-height: 1.15; margin: 0; }
+.community-activity p { font-size: 12px; color: var(--community-muted); margin: 11px 0; }
+.community-activity .community-activity-note { font-size: 10px; margin: 0 0 12px; }
+.community-activity .community-action-preview { padding: 10px 0; margin: 0; border-top: 1px dashed #d3c0df; font-size: 11px; }
+.community-activity > button { width: 100%; margin-top: auto; }
+.community-activity[data-action-kind=community] > button { background: #00796f; border-color: #00796f; color: #fff; }
+.community-activity[data-action-kind=community] > button:hover:not(:disabled) { background: #006159; }
+.community-reason { border-left: 2px solid #ac80ba; padding-left: 9px; color: #704d78; font-size: 11px; margin: 10px 0 12px; }
+
+.community-effects { display: flex; flex-wrap: wrap; gap: 7px; list-style: none; padding: 0; margin: 5px 0 14px; }
+.community-effects li { display: flex; align-items: center; gap: 6px; font-size: 10px; padding: 6px 8px; border-radius: 5px; background: #f0e9f5; color: #573c68; }
+.community-effects strong { font-weight: 700; font-variant-numeric: tabular-nums; }
+.community-effects .positive { color: #00685d; background: #e1f3eb; }
+.community-effects .negative { color: #9d342d; background: #fde9e1; }
+.community-effects .neutral { color: #624b73; }
+
+.community-contact-note { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 20px 0; border-bottom: 1px solid #dbc9e5; padding-bottom: 20px; }
+.community-contact-note p { font-size: 11px; color: var(--community-muted); margin: 0; max-width: 52ch; }
+.community-contact-note button { flex: none; font-size: 11px; }
+.community-history { margin-top: 23px; }
+.community-history-list { list-style: none; padding: 0; margin: 0; border: 1px solid #decee7; border-radius: 9px; overflow: hidden; }
+.community-history-list li { display: flex; gap: 12px; align-items: flex-start; padding: 14px; background: repeating-linear-gradient(0deg, #9c83b10b 0 1px, transparent 1px 24px), #fffdf9; }
+.community-history-list li + li { border-top: 1px solid #e1d3e9; }
+.community-history-list .community-icon { width: 18px; height: 18px; color: #00796f; margin-top: 2px; }
+.community-history-list strong { display: block; font-size: 12px; }
+.community-history-list p { font-size: 11px; color: var(--community-muted); margin: 3px 0 0; }
+.community-history-list small { display: block; font-size: 9px; letter-spacing: .5px; color: var(--community-muted); margin-bottom: 4px; }
+.community-empty { padding: 18px; border: 1px dashed #c8add8; border-radius: 9px; font-size: 12px; color: var(--community-muted); background: #f7eff9; margin: 0; }
+.community-footnote { font-size: 10px; color: var(--community-muted); margin: 17px 0 0; }
+
+.murga-decision-intro { border-bottom: 1px solid #dec9df; padding-bottom: 17px; margin-bottom: 18px; }
+.murga-decision-stamp { display: inline-flex; align-items: center; gap: 7px; padding: 7px 10px; background: #ffd447; border-radius: 5px; font-size: 9px; font-weight: 700; letter-spacing: 1px; color: #3e2a33; }
+.murga-decision-stamp .community-icon { width: 16px; height: 16px; }
+.murga-decision-intro h3 { font-size: clamp(27px, 4vw, 34px); line-height: 1.13; margin: 12px 0 9px; }
+.murga-decision-intro > p { font-size: 13px; color: var(--community-muted); margin: 0; }
+.murga-decision-instruction { font-size: 11px; color: var(--community-muted); margin: 0 0 13px; }
+.murga-decision-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; }
+.murga-decision-option { display: flex; flex-direction: column; border: 1px solid #ccb3dc; border-radius: 10px; padding: 17px; background: #fffdf9; }
+.murga-decision-option-index { color: #9e2460; font-size: 9px; font-weight: 700; letter-spacing: 1.1px; }
+.murga-decision-option h4 { font-size: 23px; line-height: 1.16; margin: 7px 0 9px; }
+.murga-decision-option > p { font-size: 12px; color: var(--community-muted); margin: 0 0 12px; }
+.murga-decision-option .community-effects { margin-top: auto; }
+.murga-decision-option > button { width: 100%; }
+.murga-decision-option > .community-reason { margin-bottom: 12px; }
+.murga-decision-empty { text-align: center; padding: 22px 0 8px; }
+.murga-decision-empty > .community-icon { width: 38px; height: 38px; color: #00796f; }
+.murga-decision-empty h3 { font-size: 28px; margin: 12px 0 8px; }
+.murga-decision-empty p { color: var(--community-muted); font-size: 12px; margin: 0 0 19px; }
+
+@media (max-width: 600px) {
+  .community-cover { padding: 19px 17px; }
+  .community-cover h3 { font-size: 28px; }
+  .community-cover p { font-size: 11px; }
+  .community-numbers > div { padding: 11px 8px; }
+  .community-numbers dt { font-size: 9px; }
+  .community-numbers dd { font-size: 22px; }
+  .community-activities,
+  .murga-decision-options { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .community-activity { padding: 15px; }
+  .community-activity-heading h4 { font-size: 23px; }
+  .community-activity p { font-size: 12px; }
+  .community-pending { flex-direction: column; align-items: stretch; gap: 10px; padding: 13px; }
+  .community-contact-note { flex-direction: column; align-items: stretch; gap: 10px; }
+  .community-section-head { align-items: center; }
+  .community-section-head h4 { font-size: 22px; }
+  .community-section-head > span { max-width: 90px; text-align: right; }
+  .murga-decision-option { padding: 15px; }
+  .murga-decision-option h4 { font-size: 23px; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .community-page button,
+  .murga-decision button { transition: background-color .15s ease, border-color .15s ease; }
+}

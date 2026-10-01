@@ -1,0 +1,1813 @@
+{
+  "source": "scripts/build-canonical-character.mjs",
+  "systemId": "murga-human-v1",
+  "rigId": "murga-rig-v1",
+  "bytes": 4303968,
+  "bones": [
+    "Root",
+    "Pelvis",
+    "Spine",
+    "Chest",
+    "Neck",
+    "Head",
+    "UpperArm_L",
+    "Forearm_L",
+    "Hand_L",
+    "Thigh_L",
+    "Shin_L",
+    "Foot_L",
+    "UpperArm_R",
+    "Forearm_R",
+    "Hand_R",
+    "Thigh_R",
+    "Shin_R",
+    "Foot_R",
+    "Skirt_L",
+    "Skirt_R"
+  ],
+  "slots": [
+    {
+      "name": "Hat_Floral",
+      "skinned": false,
+      "triangles": 3852,
+      "vertices": 2512,
+      "materials": [
+        "Cloth",
+        "SatinBurgundy",
+        "Trim",
+        "SatinRed",
+        "Ruffles"
+      ]
+    },
+    {
+      "name": "Body",
+      "skinned": true,
+      "triangles": 3856,
+      "vertices": 2367,
+      "materials": [
+        "Rehearsal",
+        "Skin"
+      ]
+    },
+    {
+      "name": "Face_Round",
+      "skinned": true,
+      "triangles": 1332,
+      "vertices": 983,
+      "materials": [
+        "EyeWhite",
+        "Hair",
+        "Ink",
+        "Skin",
+        "Coral"
+      ]
+    },
+    {
+      "name": "Face_Oval",
+      "skinned": true,
+      "triangles": 1332,
+      "vertices": 983,
+      "materials": [
+        "EyeWhite",
+        "Hair",
+        "Ink",
+        "Skin",
+        "Coral"
+      ]
+    },
+    {
+      "name": "Face_Angular",
+      "skinned": true,
+      "triangles": 1040,
+      "vertices": 801,
+      "materials": [
+        "EyeWhite",
+        "Hair",
+        "Ink",
+        "Skin",
+        "Coral"
+      ]
+    },
+    {
+      "name": "Face_Heart",
+      "skinned": true,
+      "triangles": 1332,
+      "vertices": 983,
+      "materials": [
+        "EyeWhite",
+        "Hair",
+        "Ink",
+        "Skin",
+        "Coral"
+      ]
+    },
+    {
+      "name": "Hair_Curls",
+      "skinned": true,
+      "triangles": 2320,
+      "vertices": 1773,
+      "materials": [
+        "Hair"
+      ]
+    },
+    {
+      "name": "Hair_Curls_Hat",
+      "skinned": true,
+      "triangles": 1024,
+      "vertices": 784,
+      "materials": [
+        "Hair"
+      ]
+    },
+    {
+      "name": "Hair_Sweep",
+      "skinned": true,
+      "triangles": 1280,
+      "vertices": 928,
+      "materials": [
+        "Hair"
+      ]
+    },
+    {
+      "name": "Hair_Sweep_Hat",
+      "skinned": true,
+      "triangles": 544,
+      "vertices": 406,
+      "materials": [
+        "Hair"
+      ]
+    },
+    {
+      "name": "Outfit_Emerald",
+      "skinned": true,
+      "triangles": 9668,
+      "vertices": 6582,
+      "materials": [
+        "Cloth",
+        "Trim",
+        "Trouser",
+        "SatinBurgundy",
+        "SatinRed",
+        "Ruffles",
+        "Boot"
+      ]
+    },
+    {
+      "name": "Outfit_Festival",
+      "skinned": true,
+      "triangles": 9412,
+      "vertices": 6409,
+      "materials": [
+        "Cloth",
+        "Trim",
+        "Trouser",
+        "SatinBurgundy",
+        "SatinRed",
+        "Ruffles",
+        "Boot"
+      ]
+    },
+    {
+      "name": "Outfit_Patchwork",
+      "skinned": true,
+      "triangles": 9320,
+      "vertices": 6354,
+      "materials": [
+        "Cloth",
+        "Trim",
+        "Trouser",
+        "SatinBurgundy",
+        "SatinRed",
+        "Ruffles",
+        "Boot"
+      ]
+    },
+    {
+      "name": "Outfit_Bolero",
+      "skinned": true,
+      "triangles": 7220,
+      "vertices": 4986,
+      "materials": [
+        "Cloth",
+        "Trim",
+        "Trouser",
+        "SatinBurgundy",
+        "SatinRed",
+        "Ruffles",
+        "Boot"
+      ]
+    },
+    {
+      "name": "Outfit_LongCoat",
+      "skinned": true,
+      "triangles": 9388,
+      "vertices": 6367,
+      "materials": [
+        "Cloth",
+        "Trim",
+        "Trouser",
+        "SatinBurgundy",
+        "SatinRed",
+        "Ruffles",
+        "Boot"
+      ]
+    },
+    {
+      "name": "Outfit_Tails",
+      "skinned": true,
+      "triangles": 9140,
+      "vertices": 6245,
+      "materials": [
+        "Cloth",
+        "Trim",
+        "Trouser",
+        "SatinBurgundy",
+        "SatinRed",
+        "Ruffles",
+        "Boot"
+      ]
+    },
+    {
+      "name": "Outfit_Cape",
+      "skinned": true,
+      "triangles": 9452,
+      "vertices": 6420,
+      "materials": [
+        "Cloth",
+        "Trim",
+        "Trouser",
+        "SatinBurgundy",
+        "SatinRed",
+        "Ruffles",
+        "Boot"
+      ]
+    },
+    {
+      "name": "Outfit_Gala",
+      "skinned": true,
+      "triangles": 8132,
+      "vertices": 5544,
+      "materials": [
+        "Cloth",
+        "Trim",
+        "Trouser",
+        "SatinBurgundy",
+        "SatinRed",
+        "Ruffles",
+        "Boot"
+      ]
+    },
+    {
+      "name": "Makeup_Classic",
+      "skinned": true,
+      "triangles": 720,
+      "vertices": 399,
+      "materials": [
+        "Makeup"
+      ]
+    }
+  ],
+  "clips": [
+    "idle",
+    "singing",
+    "walking",
+    "conducting",
+    "percussion",
+    "arms-up",
+    "elbows-bent"
+  ],
+  "bounds": {
+    "body": {
+      "min": [
+        -0.5198702216148376,
+        0,
+        -0.1509999930858612
+      ],
+      "max": [
+        0.5198702216148376,
+        1.7000000476837158,
+        0.16535721719264984
+      ]
+    }
+  },
+  "deformation": [
+    {
+      "clip": "idle",
+      "samples": 13,
+      "finite": true,
+      "minSleeveGapMetres": 0.022,
+      "maxBodyDisplacementMetres": 0.2346,
+      "bounds": {
+        "min": [
+          -0.32496424019865416,
+          0,
+          -0.15522656445729532
+        ],
+        "max": [
+          0.31022310899712047,
+          1.7000000476837158,
+          0.15420442517151536
+        ]
+      }
+    },
+    {
+      "clip": "singing",
+      "samples": 13,
+      "finite": true,
+      "minSleeveGapMetres": 0.022,
+      "maxBodyDisplacementMetres": 0.253,
+      "bounds": {
+        "min": [
+          -0.33639467020573893,
+          0,
+          -0.16610823747965484
+        ],
+        "max": [
+          0.32131376332544087,
+          1.6998143789605475,
+          0.15314202796556745
+        ]
+      }
+    },
+    {
+      "clip": "walking",
+      "samples": 13,
+      "finite": true,
+      "minSleeveGapMetres": 0.022,
+      "maxBodyDisplacementMetres": 0.2265,
+      "bounds": {
+        "min": [
+          -0.34863568268903306,
+          -0.002907547455051198,
+          -0.2061363583478415
+        ],
+        "max": [
+          0.33172445862043065,
+          1.7000000476837158,
+          0.2388058706176678
+        ]
+      }
+    },
+    {
+      "clip": "conducting",
+      "samples": 13,
+      "finite": true,
+      "minSleeveGapMetres": 0.02078,
+      "maxBodyDisplacementMetres": 0.5098,
+      "bounds": {
+        "min": [
+          -0.3870995023537339,
+          0,
+          -0.1508954822548703
+        ],
+        "max": [
+          0.37650632978372295,
+          1.6999234891595272,
+          0.47003974530377646
+        ]
+      }
+    },
+    {
+      "clip": "percussion",
+      "samples": 13,
+      "finite": true,
+      "minSleeveGapMetres": 0.02102,
+      "maxBodyDisplacementMetres": 0.3309,
+      "bounds": {
+        "min": [
+          -0.363379045704605,
+          0,
+          -0.14970818161964417
+        ],
+        "max": [
+          0.3464146526593028,
+          1.7000000476837158,
+          0.32320351123806995
+        ]
+      }
+    },
+    {
+      "clip": "arms-up",
+      "samples": 13,
+      "finite": true,
+      "minSleeveGapMetres": 0.02195,
+      "maxBodyDisplacementMetres": 0.9683,
+      "bounds": {
+        "min": [
+          -0.7805511427374883,
+          0,
+          -0.14970818161964417
+        ],
+        "max": [
+          0.7805511427374883,
+          1.7000000476837158,
+          0.14970818161964417
+        ]
+      }
+    },
+    {
+      "clip": "elbows-bent",
+      "samples": 13,
+      "finite": true,
+      "minSleeveGapMetres": 0.01817,
+      "maxBodyDisplacementMetres": 0.3896,
+      "bounds": {
+        "min": [
+          -0.5137516856193542,
+          0,
+          -0.14970818161964417
+        ],
+        "max": [
+          0.5123581290245056,
+          1.7000000476837158,
+          0.3349493241971899
+        ]
+      }
+    }
+  ],
+  "limitations": [
+    "Procedural stylized art; Emerald and the shared hat preserve the approved design.",
+    "No runtime cloth simulation. Long coat, rear tails and lateral scarves use the shared Skirt_L/R cloth joints; trousers use the leg bones.",
+    "Numerical envelope checks do not prove the absence of every decorative fold intersection; front, profile and back visual reviews supplement them."
+  ],
+  "triangles": 90364,
+  "vertices": 61826,
+  "topologyHash": "36b155fd276c3bb2e77afcf00f4a2de5bde540c20cb64e1917f05c595e432984",
+  "bindPoseHash": "6e75ecc5b5975716d6a10bcc965ec201e642a53684214eb377760e7c447ef70c",
+  "outfit": {
+    "type": "short-casaca-and-separate-trousers",
+    "jacketHemY": 0.8,
+    "crotchY": 0.705,
+    "separateLegsBelowY": 0.67,
+    "trouserMaterial": "Trouser",
+    "usesSkirtBones": false,
+    "minimumRestGapAtY062": 0.034,
+    "trouserDeformation": [
+      {
+        "clip": "idle",
+        "samples": 13,
+        "minSignedClearanceMetres": 0.009,
+        "maxLeftDisplacementMetres": 0,
+        "maxRightDisplacementMetres": 0
+      },
+      {
+        "clip": "singing",
+        "samples": 13,
+        "minSignedClearanceMetres": 0.009,
+        "maxLeftDisplacementMetres": 0,
+        "maxRightDisplacementMetres": 0
+      },
+      {
+        "clip": "walking",
+        "samples": 13,
+        "minSignedClearanceMetres": 0.009,
+        "maxLeftDisplacementMetres": 0.1638,
+        "maxRightDisplacementMetres": 0.1638
+      },
+      {
+        "clip": "conducting",
+        "samples": 13,
+        "minSignedClearanceMetres": 0.009,
+        "maxLeftDisplacementMetres": 0,
+        "maxRightDisplacementMetres": 0
+      },
+      {
+        "clip": "percussion",
+        "samples": 13,
+        "minSignedClearanceMetres": 0.009,
+        "maxLeftDisplacementMetres": 0,
+        "maxRightDisplacementMetres": 0
+      },
+      {
+        "clip": "arms-up",
+        "samples": 13,
+        "minSignedClearanceMetres": 0.009,
+        "maxLeftDisplacementMetres": 0,
+        "maxRightDisplacementMetres": 0
+      },
+      {
+        "clip": "elbows-bent",
+        "samples": 13,
+        "minSignedClearanceMetres": 0.009,
+        "maxLeftDisplacementMetres": 0,
+        "maxRightDisplacementMetres": 0
+      }
+    ]
+  },
+  "variantDeformation": {
+    "Outfit_Emerald": [
+      {
+        "clip": "idle",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.02127,
+        "maxSampledVertexDisplacementMetres": 0.2234,
+        "sampledBounds": {
+          "min": [
+            -0.42300516020919654,
+            0,
+            -0.26093903574332145
+          ],
+          "max": [
+            0.4190651045907646,
+            1.3619889614947702,
+            0.2719234382068533
+          ]
+        }
+      },
+      {
+        "clip": "singing",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.02127,
+        "maxSampledVertexDisplacementMetres": 0.2433,
+        "sampledBounds": {
+          "min": [
+            -0.4212753772118193,
+            0,
+            -0.26397338932462594
+          ],
+          "max": [
+            0.41666341609101554,
+            1.3685241804749202,
+            0.27085645938696373
+          ]
+        }
+      },
+      {
+        "clip": "walking",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.02127,
+        "maxSampledVertexDisplacementMetres": 0.2216,
+        "sampledBounds": {
+          "min": [
+            -0.4240675269856742,
+            -0.003067376566622141,
+            -0.25931508226995204
+          ],
+          "max": [
+            0.4206143275398291,
+            1.3602064847946167,
+            0.27349859106833446
+          ]
+        }
+      },
+      {
+        "clip": "conducting",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.02127,
+        "maxSampledVertexDisplacementMetres": 0.4603,
+        "sampledBounds": {
+          "min": [
+            -0.4602113448792357,
+            0,
+            -0.2593134574830759
+          ],
+          "max": [
+            0.43395828489479676,
+            1.3602064847946167,
+            0.4601352267297028
+          ]
+        }
+      },
+      {
+        "clip": "percussion",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.02127,
+        "maxSampledVertexDisplacementMetres": 0.334,
+        "sampledBounds": {
+          "min": [
+            -0.42594860736544765,
+            0,
+            -0.25924578309059143
+          ],
+          "max": [
+            0.41591953427961526,
+            1.3602064847946167,
+            0.34856541999733304
+          ]
+        }
+      },
+      {
+        "clip": "arms-up",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.02127,
+        "maxSampledVertexDisplacementMetres": 0.9276,
+        "sampledBounds": {
+          "min": [
+            -0.755726499619009,
+            0,
+            -0.25924578309059143
+          ],
+          "max": [
+            0.7598745490479378,
+            1.6910248374794805,
+            0.2710317075252533
+          ]
+        }
+      },
+      {
+        "clip": "elbows-bent",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.01946,
+        "maxSampledVertexDisplacementMetres": 0.3717,
+        "sampledBounds": {
+          "min": [
+            -0.559504508972168,
+            0,
+            -0.25924578309059143
+          ],
+          "max": [
+            0.5495747923851013,
+            1.3602064847946167,
+            0.32396402907604727
+          ]
+        }
+      }
+    ],
+    "Outfit_Festival": [
+      {
+        "clip": "idle",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.0235,
+        "maxSampledVertexDisplacementMetres": 0.2227,
+        "sampledBounds": {
+          "min": [
+            -0.4223218770461118,
+            0,
+            -0.29274162627305517
+          ],
+          "max": [
+            0.4181170294049984,
+            1.3920885990575969,
+            0.2694742119591092
+          ]
+        }
+      },
+      {
+        "clip": "singing",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.0235,
+        "maxSampledVertexDisplacementMetres": 0.2434,
+        "sampledBounds": {
+          "min": [
+            -0.42048378554543,
+            0,
+            -0.2920188613917866
+          ],
+          "max": [
+            0.41572583279318753,
+            1.3981011320210484,
+            0.26847360764977873
+          ]
+        }
+      },
+      {
+        "clip": "walking",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.0235,
+        "maxSampledVertexDisplacementMetres": 0.2202,
+        "sampledBounds": {
+          "min": [
+            -0.4235316380431067,
+            -0.003067376566622141,
+            -0.2935061800848885
+          ],
+          "max": [
+            0.4205822939103676,
+            1.3883891105651855,
+            0.2711348809064158
+          ]
+        }
+      },
+      {
+        "clip": "conducting",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.0235,
+        "maxSampledVertexDisplacementMetres": 0.4612,
+        "sampledBounds": {
+          "min": [
+            -0.4398160162520786,
+            0,
+            -0.29390276682935224
+          ],
+          "max": [
+            0.4410017682679704,
+            1.3883891105651855,
+            0.4589152996308511
+          ]
+        }
+      },
+      {
+        "clip": "percussion",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.0235,
+        "maxSampledVertexDisplacementMetres": 0.3368,
+        "sampledBounds": {
+          "min": [
+            -0.4201346676945016,
+            0,
+            -0.2905251979827881
+          ],
+          "max": [
+            0.4151184918382176,
+            1.3883891105651855,
+            0.3466275636290014
+          ]
+        }
+      },
+      {
+        "clip": "arms-up",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.0235,
+        "maxSampledVertexDisplacementMetres": 0.9309,
+        "sampledBounds": {
+          "min": [
+            -0.7593446295479167,
+            0,
+            -0.2905251979827881
+          ],
+          "max": [
+            0.756238785576594,
+            1.6903558796804106,
+            0.2686532437801361
+          ]
+        }
+      },
+      {
+        "clip": "elbows-bent",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.0213,
+        "maxSampledVertexDisplacementMetres": 0.3689,
+        "sampledBounds": {
+          "min": [
+            -0.5511775612831116,
+            0,
+            -0.2905251979827881
+          ],
+          "max": [
+            0.5491283535957336,
+            1.3883891105651855,
+            0.32172035704195645
+          ]
+        }
+      }
+    ],
+    "Outfit_Patchwork": [
+      {
+        "clip": "idle",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.01849,
+        "maxSampledVertexDisplacementMetres": 0.2227,
+        "sampledBounds": {
+          "min": [
+            -0.4207991674244247,
+            0,
+            -0.22354976049024775
+          ],
+          "max": [
+            0.4200191265003389,
+            1.3531476436691543,
+            0.23020287500669728
+          ]
+        }
+      },
+      {
+        "clip": "singing",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.01849,
+        "maxSampledVertexDisplacementMetres": 0.2425,
+        "sampledBounds": {
+          "min": [
+            -0.41903488971207636,
+            0,
+            -0.22802013250310937
+          ],
+          "max": [
+            0.4175761547963118,
+            1.3577075309251518,
+            0.22960232198238373
+          ]
+        }
+      },
+      {
+        "clip": "walking",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.01849,
+        "maxSampledVertexDisplacementMetres": 0.2202,
+        "sampledBounds": {
+          "min": [
+            -0.42189665618807326,
+            -0.003067376566622141,
+            -0.22523113702425027
+          ],
+          "max": [
+            0.42166125022920165,
+            1.3509955406188965,
+            0.2711348809064158
+          ]
+        }
+      },
+      {
+        "clip": "conducting",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.01849,
+        "maxSampledVertexDisplacementMetres": 0.4596,
+        "sampledBounds": {
+          "min": [
+            -0.4284860455867929,
+            0,
+            -0.2255448872840269
+          ],
+          "max": [
+            0.4547832106447413,
+            1.3528797302319018,
+            0.4568537041837676
+          ]
+        }
+      },
+      {
+        "clip": "percussion",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.01849,
+        "maxSampledVertexDisplacementMetres": 0.3355,
+        "sampledBounds": {
+          "min": [
+            -0.4185695386045112,
+            0,
+            -0.22287768125534058
+          ],
+          "max": [
+            0.4206791962281406,
+            1.3509955406188965,
+            0.34543761437257176
+          ]
+        }
+      },
+      {
+        "clip": "arms-up",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.01849,
+        "maxSampledVertexDisplacementMetres": 0.9278,
+        "sampledBounds": {
+          "min": [
+            -0.7576824174359686,
+            0,
+            -0.22287768125534058
+          ],
+          "max": [
+            0.758139530717826,
+            1.6890251354558787,
+            0.22960232198238373
+          ]
+        }
+      },
+      {
+        "clip": "elbows-bent",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.01716,
+        "maxSampledVertexDisplacementMetres": 0.3667,
+        "sampledBounds": {
+          "min": [
+            -0.55059814453125,
+            0,
+            -0.22287768125534058
+          ],
+          "max": [
+            0.5547131299972534,
+            1.3509955406188965,
+            0.31996838259984284
+          ]
+        }
+      }
+    ],
+    "Outfit_Bolero": [
+      {
+        "clip": "idle",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.02628,
+        "maxSampledVertexDisplacementMetres": 0.2227,
+        "sampledBounds": {
+          "min": [
+            -0.4223218770461118,
+            0,
+            -0.21959504539254154
+          ],
+          "max": [
+            0.4181170294049984,
+            1.3516097551963873,
+            0.23437906801700592
+          ]
+        }
+      },
+      {
+        "clip": "singing",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.02628,
+        "maxSampledVertexDisplacementMetres": 0.2434,
+        "sampledBounds": {
+          "min": [
+            -0.42048378554543,
+            0,
+            -0.22402723507940842
+          ],
+          "max": [
+            0.41572583279318753,
+            1.3570154047597789,
+            0.23437906801700592
+          ]
+        }
+      },
+      {
+        "clip": "walking",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.02628,
+        "maxSampledVertexDisplacementMetres": 0.2202,
+        "sampledBounds": {
+          "min": [
+            -0.4235316380431067,
+            -0.003067376566622141,
+            -0.2213006095500935
+          ],
+          "max": [
+            0.41970553755006157,
+            1.3491318225860596,
+            0.2711348809064158
+          ]
+        }
+      },
+      {
+        "clip": "conducting",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.02628,
+        "maxSampledVertexDisplacementMetres": 0.4612,
+        "sampledBounds": {
+          "min": [
+            -0.4485744346393022,
+            0,
+            -0.2216149546690454
+          ],
+          "max": [
+            0.4453589747703565,
+            1.3512187775421696,
+            0.4589152996308511
+          ]
+        }
+      },
+      {
+        "clip": "percussion",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.02628,
+        "maxSampledVertexDisplacementMetres": 0.3368,
+        "sampledBounds": {
+          "min": [
+            -0.4201346676945016,
+            0,
+            -0.21894574165344238
+          ],
+          "max": [
+            0.4151184918382176,
+            1.3491318225860596,
+            0.3466275636290014
+          ]
+        }
+      },
+      {
+        "clip": "arms-up",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.02628,
+        "maxSampledVertexDisplacementMetres": 0.9309,
+        "sampledBounds": {
+          "min": [
+            -0.7593446295479167,
+            0,
+            -0.21894574165344238
+          ],
+          "max": [
+            0.758139530717826,
+            1.6903558796804106,
+            0.23437906801700592
+          ]
+        }
+      },
+      {
+        "clip": "elbows-bent",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.02359,
+        "maxSampledVertexDisplacementMetres": 0.3667,
+        "sampledBounds": {
+          "min": [
+            -0.5511775612831116,
+            0,
+            -0.21894574165344238
+          ],
+          "max": [
+            0.5491283535957336,
+            1.3491318225860596,
+            0.31996838259984284
+          ]
+        }
+      }
+    ],
+    "Outfit_LongCoat": [
+      {
+        "clip": "idle",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.01849,
+        "maxSampledVertexDisplacementMetres": 0.222,
+        "sampledBounds": {
+          "min": [
+            -0.4207991674244247,
+            0,
+            -0.36199114266024734
+          ],
+          "max": [
+            0.4200191265003389,
+            1.364896269410593,
+            0.3034026026725769
+          ]
+        }
+      },
+      {
+        "clip": "singing",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.01849,
+        "maxSampledVertexDisplacementMetres": 0.2425,
+        "sampledBounds": {
+          "min": [
+            -0.41903488971207636,
+            0,
+            -0.36199114266024734
+          ],
+          "max": [
+            0.4175761547963118,
+            1.3659167291800098,
+            0.3034026026725769
+          ]
+        }
+      },
+      {
+        "clip": "walking",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.01849,
+        "maxSampledVertexDisplacementMetres": 0.2208,
+        "sampledBounds": {
+          "min": [
+            -0.42189665618807326,
+            -0.003067376566622141,
+            -0.4394059950444733
+          ],
+          "max": [
+            0.42166125022920165,
+            1.3609474897384644,
+            0.38772808610406573
+          ]
+        }
+      },
+      {
+        "clip": "conducting",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.01849,
+        "maxSampledVertexDisplacementMetres": 0.4596,
+        "sampledBounds": {
+          "min": [
+            -0.4454937280663275,
+            0,
+            -0.36199114266024734
+          ],
+          "max": [
+            0.4547832106447413,
+            1.3609474897384644,
+            0.4580067618049199
+          ]
+        }
+      },
+      {
+        "clip": "percussion",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.01849,
+        "maxSampledVertexDisplacementMetres": 0.3355,
+        "sampledBounds": {
+          "min": [
+            -0.4185695386045112,
+            0,
+            -0.36199114266024734
+          ],
+          "max": [
+            0.4206791962281406,
+            1.3609474897384644,
+            0.3463616163782096
+          ]
+        }
+      },
+      {
+        "clip": "arms-up",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.01849,
+        "maxSampledVertexDisplacementMetres": 0.9266,
+        "sampledBounds": {
+          "min": [
+            -0.7566190117541449,
+            0,
+            -0.36199114266024734
+          ],
+          "max": [
+            0.756238785576594,
+            1.6899995867399202,
+            0.3034026026725769
+          ]
+        }
+      },
+      {
+        "clip": "elbows-bent",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.01716,
+        "maxSampledVertexDisplacementMetres": 0.3689,
+        "sampledBounds": {
+          "min": [
+            -0.550001323223114,
+            0,
+            -0.36199114266024734
+          ],
+          "max": [
+            0.5547131299972534,
+            1.3609474897384644,
+            0.32172035704195645
+          ]
+        }
+      }
+    ],
+    "Outfit_Tails": [
+      {
+        "clip": "idle",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.01849,
+        "maxSampledVertexDisplacementMetres": 0.222,
+        "sampledBounds": {
+          "min": [
+            -0.4207991674244247,
+            0,
+            -0.3437555083072854
+          ],
+          "max": [
+            0.4200191265003389,
+            1.3634387014104896,
+            0.27206107052937767
+          ]
+        }
+      },
+      {
+        "clip": "singing",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.01849,
+        "maxSampledVertexDisplacementMetres": 0.2425,
+        "sampledBounds": {
+          "min": [
+            -0.41903488971207636,
+            0,
+            -0.3437555083072854
+          ],
+          "max": [
+            0.4175761547963118,
+            1.366789184765494,
+            0.2710368040651159
+          ]
+        }
+      },
+      {
+        "clip": "walking",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.01849,
+        "maxSampledVertexDisplacementMetres": 0.2202,
+        "sampledBounds": {
+          "min": [
+            -0.42189665618807326,
+            -0.003067376566622141,
+            -0.40811154219690327
+          ],
+          "max": [
+            0.42166125022920165,
+            1.3610455989837646,
+            0.27357263842469387
+          ]
+        }
+      },
+      {
+        "clip": "conducting",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.01849,
+        "maxSampledVertexDisplacementMetres": 0.4596,
+        "sampledBounds": {
+          "min": [
+            -0.4454937280663275,
+            0,
+            -0.3437555083072854
+          ],
+          "max": [
+            0.4547832106447413,
+            1.3610455989837646,
+            0.4568537041837676
+          ]
+        }
+      },
+      {
+        "clip": "percussion",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.01849,
+        "maxSampledVertexDisplacementMetres": 0.3355,
+        "sampledBounds": {
+          "min": [
+            -0.4185695386045112,
+            0,
+            -0.3437555083072854
+          ],
+          "max": [
+            0.4206791962281406,
+            1.3610455989837646,
+            0.3463616163782096
+          ]
+        }
+      },
+      {
+        "clip": "arms-up",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.01849,
+        "maxSampledVertexDisplacementMetres": 0.9266,
+        "sampledBounds": {
+          "min": [
+            -0.7566190117541449,
+            0,
+            -0.3437555083072854
+          ],
+          "max": [
+            0.756238785576594,
+            1.6890251354558787,
+            0.27120527625083923
+          ]
+        }
+      },
+      {
+        "clip": "elbows-bent",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.01716,
+        "maxSampledVertexDisplacementMetres": 0.3689,
+        "sampledBounds": {
+          "min": [
+            -0.550001323223114,
+            0,
+            -0.3437555083072854
+          ],
+          "max": [
+            0.5547131299972534,
+            1.3610455989837646,
+            0.32172035704195645
+          ]
+        }
+      }
+    ],
+    "Outfit_Cape": [
+      {
+        "clip": "idle",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.01849,
+        "maxSampledVertexDisplacementMetres": 0.222,
+        "sampledBounds": {
+          "min": [
+            -0.4207991674244247,
+            0,
+            -0.3564595270413698
+          ],
+          "max": [
+            0.42618497020749635,
+            1.3634387014104896,
+            0.25665308330751346
+          ]
+        }
+      },
+      {
+        "clip": "singing",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.01849,
+        "maxSampledVertexDisplacementMetres": 0.2425,
+        "sampledBounds": {
+          "min": [
+            -0.41903488971207636,
+            0,
+            -0.3496871907980354
+          ],
+          "max": [
+            0.4260028898715973,
+            1.366789184765494,
+            0.25435775714399156
+          ]
+        }
+      },
+      {
+        "clip": "walking",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.01849,
+        "maxSampledVertexDisplacementMetres": 0.2202,
+        "sampledBounds": {
+          "min": [
+            -0.42189665618807326,
+            -0.003067376566622141,
+            -0.35390001787152525
+          ],
+          "max": [
+            0.4262935152884585,
+            1.3610455989837646,
+            0.2711348809064158
+          ]
+        }
+      },
+      {
+        "clip": "conducting",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.01849,
+        "maxSampledVertexDisplacementMetres": 0.4596,
+        "sampledBounds": {
+          "min": [
+            -0.4348956357680956,
+            0,
+            -0.35422450496092744
+          ],
+          "max": [
+            0.4547832106447413,
+            1.3610455989837646,
+            0.4568537041837676
+          ]
+        }
+      },
+      {
+        "clip": "percussion",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.01849,
+        "maxSampledVertexDisplacementMetres": 0.3355,
+        "sampledBounds": {
+          "min": [
+            -0.4185695386045112,
+            0,
+            -0.3513813614845276
+          ],
+          "max": [
+            0.4260028898715973,
+            1.3610455989837646,
+            0.34543761437257176
+          ]
+        }
+      },
+      {
+        "clip": "arms-up",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.01849,
+        "maxSampledVertexDisplacementMetres": 0.9278,
+        "sampledBounds": {
+          "min": [
+            -0.7576824174359686,
+            0,
+            -0.3513813614845276
+          ],
+          "max": [
+            0.756238785576594,
+            1.6890251354558787,
+            0.2552903890609741
+          ]
+        }
+      },
+      {
+        "clip": "elbows-bent",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.01716,
+        "maxSampledVertexDisplacementMetres": 0.3667,
+        "sampledBounds": {
+          "min": [
+            -0.55059814453125,
+            0,
+            -0.3513813614845276
+          ],
+          "max": [
+            0.5547131299972534,
+            1.3610455989837646,
+            0.31996838259984284
+          ]
+        }
+      }
+    ],
+    "Outfit_Gala": [
+      {
+        "clip": "idle",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.01988,
+        "maxSampledVertexDisplacementMetres": 0.2231,
+        "sampledBounds": {
+          "min": [
+            -0.4207991674244247,
+            0,
+            -0.24951874266437937
+          ],
+          "max": [
+            0.4200191265003389,
+            1.3622035482586219,
+            0.30305540561676025
+          ]
+        }
+      },
+      {
+        "clip": "singing",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.01988,
+        "maxSampledVertexDisplacementMetres": 0.2428,
+        "sampledBounds": {
+          "min": [
+            -0.41903488971207636,
+            0,
+            -0.25429499784108295
+          ],
+          "max": [
+            0.4175761547963118,
+            1.367834394809361,
+            0.30305540561676025
+          ]
+        }
+      },
+      {
+        "clip": "walking",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.01988,
+        "maxSampledVertexDisplacementMetres": 0.2208,
+        "sampledBounds": {
+          "min": [
+            -0.42189665618807326,
+            -0.003067376566622141,
+            -0.25106338153950813
+          ],
+          "max": [
+            0.42166125022920165,
+            1.3598453998565674,
+            0.3498234346985436
+          ]
+        }
+      },
+      {
+        "clip": "conducting",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.01988,
+        "maxSampledVertexDisplacementMetres": 0.4583,
+        "sampledBounds": {
+          "min": [
+            -0.4482162191916663,
+            0,
+            -0.2513775495896026
+          ],
+          "max": [
+            0.45581063907211766,
+            1.3598453998565674,
+            0.4580067618049199
+          ]
+        }
+      },
+      {
+        "clip": "percussion",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.01988,
+        "maxSampledVertexDisplacementMetres": 0.3348,
+        "sampledBounds": {
+          "min": [
+            -0.4185695386045112,
+            0,
+            -0.24868892133235931
+          ],
+          "max": [
+            0.42081780907429583,
+            1.3598453998565674,
+            0.34613566131253815
+          ]
+        }
+      },
+      {
+        "clip": "arms-up",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.01988,
+        "maxSampledVertexDisplacementMetres": 0.9247,
+        "sampledBounds": {
+          "min": [
+            -0.755726499619009,
+            0,
+            -0.24868892133235931
+          ],
+          "max": [
+            0.7590611019364539,
+            1.6899995867399202,
+            0.30305540561676025
+          ]
+        }
+      },
+      {
+        "clip": "elbows-bent",
+        "samples": 13,
+        "finite": true,
+        "minSignedSleeveClearanceMetres": 0.01831,
+        "maxSampledVertexDisplacementMetres": 0.3688,
+        "sampledBounds": {
+          "min": [
+            -0.549957811832428,
+            0,
+            -0.24868892133235931
+          ],
+          "max": [
+            0.5517405867576599,
+            1.3598453998565674,
+            0.32165901703359434
+          ]
+        }
+      }
+    ]
+  },
+  "budget": {
+    "targetVisibleTrianglesPerActor": 20000,
+    "packedTrianglesAllVariants": 90364,
+    "bytes": 4303968,
+    "commonDressedTriangles": 10784,
+    "visibleByOutfit": {
+      "Outfit_Emerald": {
+        "outfitTriangles": 9668,
+        "visibleWithMaximumFaceHairHatMakeup": 20452,
+        "underTarget": false
+      },
+      "Outfit_Festival": {
+        "outfitTriangles": 9412,
+        "visibleWithMaximumFaceHairHatMakeup": 20196,
+        "underTarget": false
+      },
+      "Outfit_Patchwork": {
+        "outfitTriangles": 9320,
+        "visibleWithMaximumFaceHairHatMakeup": 20104,
+        "underTarget": false
+      },
+      "Outfit_Bolero": {
+        "outfitTriangles": 7220,
+        "visibleWithMaximumFaceHairHatMakeup": 18004,
+        "underTarget": true
+      },
+      "Outfit_LongCoat": {
+        "outfitTriangles": 9388,
+        "visibleWithMaximumFaceHairHatMakeup": 20172,
+        "underTarget": false
+      },
+      "Outfit_Tails": {
+        "outfitTriangles": 9140,
+        "visibleWithMaximumFaceHairHatMakeup": 19924,
+        "underTarget": true
+      },
+      "Outfit_Cape": {
+        "outfitTriangles": 9452,
+        "visibleWithMaximumFaceHairHatMakeup": 20236,
+        "underTarget": false
+      },
+      "Outfit_Gala": {
+        "outfitTriangles": 8132,
+        "visibleWithMaximumFaceHairHatMakeup": 18916,
+        "underTarget": true
+      }
+    },
+    "note": "One outfit, face and hair variant render at a time. All download variants are counted separately from visible per-actor geometry."
+  },
+  "outfits": {
+    "Outfit_Emerald": {
+      "cut": "volados-short",
+      "jacketHemMetres": 0.8,
+      "restBounds": {
+        "min": [
+          -0.559504508972168,
+          0,
+          -0.2631254494190216
+        ],
+        "max": [
+          0.559504508972168,
+          1.362194538116455,
+          0.27120527625083923
+        ]
+      },
+      "triangles": 9668,
+      "trouserProfile": "shared-separated-legs",
+      "bodyMaskRequired": false
+    },
+    "Outfit_Festival": {
+      "cut": "asymmetric-festival",
+      "asymmetric": true,
+      "collarCount": 8,
+      "collarScale": 1.15,
+      "frontRows": 2,
+      "sleeveScale": 1.08,
+      "jacketHemMetres": 0.8,
+      "restBounds": {
+        "min": [
+          -0.5633375644683838,
+          0,
+          -0.2905251979827881
+        ],
+        "max": [
+          0.5633375644683838,
+          1.3916826248168945,
+          0.27120527625083923
+        ]
+      },
+      "triangles": 9412,
+      "trouserProfile": "shared-separated-legs",
+      "bodyMaskRequired": false
+    },
+    "Outfit_Patchwork": {
+      "cut": "harlequin-panels",
+      "patchwork": true,
+      "collarCount": 6,
+      "collarScale": 0.85,
+      "frontRows": 0,
+      "sleeveScale": 0.9,
+      "jacketHemMetres": 0.8,
+      "restBounds": {
+        "min": [
+          -0.5547131299972534,
+          0,
+          -0.22453925013542175
+        ],
+        "max": [
+          0.5547131299972534,
+          1.3515362739562988,
+          0.23128314316272736
+        ]
+      },
+      "triangles": 9320,
+      "trouserProfile": "shared-separated-legs",
+      "bodyMaskRequired": false
+    },
+    "Outfit_Bolero": {
+      "cut": "cropped-bolero",
+      "bolero": true,
+      "collarCount": 6,
+      "collarScale": 0.82,
+      "frontRows": 0,
+      "sleeveScale": 1.18,
+      "jacketHemMetres": 0.965,
+      "restBounds": {
+        "min": [
+          -0.5681288838386536,
+          0,
+          -0.21894574165344238
+        ],
+        "max": [
+          0.5681288838386536,
+          1.3499420881271362,
+          0.23605799674987793
+        ]
+      },
+      "triangles": 7220,
+      "trouserProfile": "shared-separated-legs",
+      "bodyMaskRequired": false
+    },
+    "Outfit_LongCoat": {
+      "cut": "open-long-coat",
+      "longCoat": true,
+      "collarCount": 8,
+      "frontRows": 2,
+      "sleeveScale": 0.9,
+      "jacketHemMetres": 0.8,
+      "restBounds": {
+        "min": [
+          -0.5547131299972534,
+          0,
+          -0.36499249935150146
+        ],
+        "max": [
+          0.5547131299972534,
+          1.3609474897384644,
+          0.3062911331653595
+        ]
+      },
+      "triangles": 9388,
+      "trouserProfile": "shared-separated-legs",
+      "bodyMaskRequired": false
+    },
+    "Outfit_Tails": {
+      "cut": "split-rear-tails",
+      "tails": true,
+      "collarCount": 6,
+      "frontRows": 2,
+      "sleeveScale": 0.9,
+      "jacketHemMetres": 0.8,
+      "restBounds": {
+        "min": [
+          -0.5547131299972534,
+          0,
+          -0.34671252965927124
+        ],
+        "max": [
+          0.5547131299972534,
+          1.3610455989837646,
+          0.27120527625083923
+        ]
+      },
+      "triangles": 9140,
+      "trouserProfile": "shared-separated-legs",
+      "bodyMaskRequired": false
+    },
+    "Outfit_Cape": {
+      "cut": "short-back-cape",
+      "cape": true,
+      "collarCount": 6,
+      "frontRows": 0,
+      "sleeveScale": 0.9,
+      "jacketHemMetres": 0.8,
+      "restBounds": {
+        "min": [
+          -0.5547131299972534,
+          0,
+          -0.3527974784374237
+        ],
+        "max": [
+          0.5547131299972534,
+          1.3610455989837646,
+          0.2552903890609741
+        ]
+      },
+      "triangles": 9452,
+      "trouserProfile": "shared-separated-legs",
+      "bodyMaskRequired": false
+    },
+    "Outfit_Gala": {
+      "cut": "jabot-and-long-scarves",
+      "gala": true,
+      "collarCount": 6,
+      "frontRows": 0,
+      "sleeveScale": 0.95,
+      "jacketHemMetres": 0.8,
+      "restBounds": {
+        "min": [
+          -0.5571088194847107,
+          0,
+          -0.25251004099845886
+        ],
+        "max": [
+          0.5571088194847107,
+          1.3610455989837646,
+          0.3045567572116852
+        ]
+      },
+      "triangles": 8132,
+      "trouserProfile": "shared-separated-legs",
+      "bodyMaskRequired": false
+    }
+  }
+}

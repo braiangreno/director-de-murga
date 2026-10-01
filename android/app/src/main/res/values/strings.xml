@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Director de Murga</string>
+    <string name="title_activity_main">Director de Murga</string>
+    <string name="package_name">uy.carnaval.directordemurga</string>
+    <string name="custom_url_scheme">uy.carnaval.directordemurga</string>
+</resources>

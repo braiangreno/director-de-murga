@@ -1,0 +1,41 @@
+{
+  "status": "implemented-and-verified",
+  "assetSha256": "ac2e916e9a15ed2beda382ab63b78f96ed3adaee09ba0c078c394133f45203e0",
+  "catalogSha256": "a9cbf5cecb97e77377a5664a8f82136056d4b306c4b694237c3a4e04732fae1b",
+  "automatedTests": {
+    "passed": 44,
+    "failed": 0,
+    "includes": "real GLB skinning, eight distinct costume geometries, all 96 outfit/palette combinations, isolated colors, four head and makeup morphs, independent rigs, cosmetic persistence and season simulation"
+  },
+  "build": "TypeScript and Vite passed for the final collection",
+  "mobileSync": "Android and iOS Capacitor sync passed; GLB and catalog hashes match public, dist and both native asset directories",
+  "nativeBinaryTested": false,
+  "browserChecks": {
+    "desktopStudio": true,
+    "mobileCssViewport": "390x844",
+    "comparison": true,
+    "individualSelectionPersistence": true,
+    "seventeenActors": true,
+    "seasonResourcesUnchanged": true,
+    "theatreSeventeenActors": true,
+    "frontSideBackReview": true,
+    "eightOutfitsAndTwelvePalettes": true,
+    "outfitToggleRestoresLastCut": true,
+    "longCoatsWalking": true,
+    "expandedRehearsalFloor": true
+  },
+  "newMeshyCreditsSpent": 0,
+  "artStyle": "Base fabric-fold style accepted by the user; eight costume cuts preserve that direction.",
+  "limitations": [
+    "Mobile layout verified in browser, not sustained GPU performance on phones.",
+    "Initial authored wardrobe collection; arbitrary external GLBs require fitting to the canonical body."
+  ],
+  "gltfValidation": {
+    "errors": 0,
+    "warnings": 0,
+    "report": "assets/character-system/gltf-validation.json"
+  },
+  "artRevision": "Defined shoulders and four facial shapes, large folded satin ruffles with burgundy reverses and gold edging, a fabric crown, eight short and open long costume cuts and twelve palettes.",
+  "collection": {"outfits": 8, "palettes": 12, "combinations": 96},
+  "deformationAudit": {"samples": 728, "clips": 7, "minimumSleeveClearanceMetres": 0.01716, "minimumTrouserClearanceMetres": 0.009}
+}

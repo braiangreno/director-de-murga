@@ -1,0 +1,94 @@
+{
+  "version": 1,
+  "bodyId": "murga-base-v1",
+  "bodyUrl": "/models/character-system/canonical.glb",
+  "nominalHeight": 1.7,
+  "heightLimits": {"min": 0.9, "max": 1.1, "step": 0.01},
+  "bodyNode": "Body",
+  "hatSocket": "head_hat",
+  "faces": [
+    {"id": "face-round", "label": "Redonda", "node": "Face_Round", "morph": null},
+    {"id": "face-oval", "label": "Ovalada", "node": "Face_Oval", "morph": "Face_Oval"},
+    {"id": "face-angular", "label": "Angulosa", "node": "Face_Angular", "morph": "Face_Angular"},
+    {"id": "face-heart", "label": "Corazón", "node": "Face_Heart", "morph": "Face_Heart"}
+  ],
+  "hair": [
+    {"id": "hair-curly", "label": "Rulos", "node": "Hair_Curls", "hatNode": "Hair_Curls_Hat"},
+    {"id": "hair-sweep", "label": "Peinado de lado", "node": "Hair_Sweep", "hatNode": "Hair_Sweep_Hat"},
+    {"id": "hair-none", "label": "Sin pelo", "node": null, "hatNode": null}
+  ],
+  "outfits": [
+    {"id":"outfit-murga","label":"Volados de barrio","description":"Casaca con grandes volados de satén y pantalón separado.","length":"short","node":"Outfit_Emerald","stageWidth":0.85,"frontClearance":0.342},
+    {"id":"outfit-festival","label":"Fiesta de colores","description":"Capas de volados en cuello, hombros y mangas.","length":"short","node":"Outfit_Festival","stageWidth":0.85,"frontClearance":0.342},
+    {"id":"outfit-patchwork","label":"Retazos del barrio","description":"Paneles de color y detalles textiles sobre una casaca corta.","length":"short","node":"Outfit_Patchwork","stageWidth":0.85,"frontClearance":0.342},
+    {"id":"outfit-bolero","label":"Bolero carnavalero","description":"Chaqueta a la cintura con mangas amplias y pantalón visible.","length":"short","node":"Outfit_Bolero","stageWidth":0.85,"frontClearance":0.342},
+    {"id":"outfit-long-coat","label":"Levita de tablado","description":"Casaca larga abierta al frente, con las dos piernas a la vista.","length":"long","node":"Outfit_LongCoat","stageWidth":0.85,"frontClearance":0.342},
+    {"id":"outfit-tails","label":"Frac de despedida","description":"Frente corto y faldones separados que acompañan el movimiento.","length":"long","node":"Outfit_Tails","stageWidth":0.85,"frontClearance":0.342},
+    {"id":"outfit-cape","label":"Capa de carnaval","description":"Capa sobre los hombros, volados y pantalón independiente.","length":"long","node":"Outfit_Cape","stageWidth":0.859,"frontClearance":0.342},
+    {"id":"outfit-gala","label":"Gala de febrero","description":"Corte largo de gala con abertura central y bordes ornamentados.","length":"long","node":"Outfit_Gala","stageWidth":0.85,"frontClearance":0.342},
+    {"id":"none","label":"Base de ensayo","description":"El cuerpo de ensayo, sin traje de actuación.","length":"none","node":null,"stageWidth":0.673,"frontClearance":0.14}
+  ],
+  "hats": [
+    {"id": "hat-carnival", "label": "Sombrero de carnaval", "node": "Hat_Floral"},
+    {"id": "hat-none", "label": "Sin sombrero", "node": null}
+  ],
+  "makeup": [
+    {"id": "makeup-classic", "label": "Maquillaje clásico", "node": "Makeup_Classic"},
+    {"id": "none", "label": "Sin maquillaje", "node": null}
+  ],
+  "palettes": [
+    {"id": "emerald", "label": "Esmeralda", "primary": "#087c78", "secondary": "#e82b82", "trim": "#d8aa41", "trouser": "#26354e", "accent": "#d71945", "deepFabric": "#541a39"},
+    {"id": "carmine", "label": "Carmín", "primary": "#a52e4e", "secondary": "#18bfb7", "trim": "#e3b65e", "trouser": "#342347", "accent": "#ea593d", "deepFabric": "#562139"},
+    {"id": "indigo", "label": "Índigo", "primary": "#514694", "secondary": "#f6b939", "trim": "#c3b4e3", "trouser": "#1e4850", "accent": "#ef4e76", "deepFabric": "#2e1c55"},
+    {"id": "sunrise", "label": "Amanecer", "primary": "#d8792e", "secondary": "#df3979", "trim": "#79508a", "trouser": "#3e2949", "accent": "#bf244b", "deepFabric": "#5a203e"},
+    {"id": "ocean", "label": "Azul y cobre", "primary": "#136fa4", "secondary": "#20cdc4", "trim": "#dc9b60", "trouser": "#1d2d49", "accent": "#e96050", "deepFabric": "#173a5d"},
+    {"id": "orchid", "label": "Orquídea", "primary": "#902d86", "secondary": "#f78bc3", "trim": "#efc465", "trouser": "#342344", "accent": "#d32d59", "deepFabric": "#451744"},
+    {"id": "lime", "label": "Lima y violeta", "primary": "#719521", "secondary": "#a43bce", "trim": "#f5d566", "trouser": "#263445", "accent": "#e74394", "deepFabric": "#39214f"},
+    {"id": "scarlet", "label": "Rojo de telón", "primary": "#bd2338", "secondary": "#f07a43", "trim": "#ebbc50", "trouser": "#292735", "accent": "#eb3875", "deepFabric": "#5b162b"},
+    {"id": "pearl", "label": "Marfil y petróleo", "primary": "#e6d8ba", "secondary": "#157b83", "trim": "#c59f5b", "trouser": "#20373f", "accent": "#bd3153", "deepFabric": "#3d2343"},
+    {"id": "midnight", "label": "Noche y dorado", "primary": "#243957", "secondary": "#b4498b", "trim": "#e4bd58", "trouser": "#171f30", "accent": "#d84650", "deepFabric": "#391f48"},
+    {"id": "turquoise", "label": "Turquesa y coral", "primary": "#159d9c", "secondary": "#fb865e", "trim": "#efd181", "trouser": "#224451", "accent": "#e72b72", "deepFabric": "#51234a"},
+    {"id": "sunflower", "label": "Sol y añil", "primary": "#e5b32e", "secondary": "#4657ad", "trim": "#f3d677", "trouser": "#2e2f4a", "accent": "#df475d", "deepFabric": "#36215d"}
+  ],
+  "skinTones": [
+    {"id": "skin-light", "label": "Claro", "color": "#f2c8a3"},
+    {"id": "skin-warm", "label": "Cálido", "color": "#c98d62"},
+    {"id": "skin-brown", "label": "Marrón", "color": "#9b6244"},
+    {"id": "skin-deep", "label": "Oscuro", "color": "#62402f"}
+  ],
+  "hairColors": [
+    {"id": "hair-dark", "label": "Morocho", "color": "#30221f"},
+    {"id": "hair-brown", "label": "Castaño", "color": "#69412e"},
+    {"id": "hair-copper", "label": "Cobrizo", "color": "#a85632"},
+    {"id": "hair-gray", "label": "Canoso", "color": "#c3beb4"}
+  ],
+  "animations": [
+    {"id": "idle", "label": "En espera", "clip": "idle"},
+    {"id": "sing", "label": "Cantar", "clip": "singing"},
+    {"id": "walk", "label": "Caminar", "clip": "walking"},
+    {"id": "conduct", "label": "Dirigir", "clip": "conducting"},
+    {"id": "percussion", "label": "Percusión", "clip": "percussion"},
+    {"id": "armsup", "label": "Brazos arriba", "clip": "arms-up"},
+    {"id": "elbowsbend", "label": "Codos flexionados", "clip": "elbows-bent"},
+    {"id": "none", "label": "Pose base", "clip": null}
+  ],
+  "fitAudit": {
+    "assetSha256": "ac2e916e9a15ed2beda382ab63b78f96ed3adaee09ba0c078c394133f45203e0",
+    "rootScale": 1,
+    "samplesPerClip": 13,
+    "defaultHeadwear": "hat-carnival",
+    "stageClips": ["idle", "singing"],
+    "stageWidthMethod": "Maximum symmetric X envelope of visible actor and selected outfit, rounded outwards to 0.001 m. Multiply once by heightScale; add stage gap separately.",
+    "frontClip": "percussion",
+    "frontRegion": {"x": [-0.23, 0.23], "y": [0.63, 1.1], "zMinimum": 0},
+    "frontMethod": "Maximum Z of animated triangles clipped to central torso region, rounded outwards to 0.001 m. Multiply once by heightScale; add instrument thickness and clearance separately.",
+    "limitations": "Sampled pose envelopes, not continuous swept-volume bounds.",
+    "measurementScript": "output/character-fit-measure.mjs",
+    "measurementReport": "output/character-fit-measurements.json"
+  },
+  "defaults": {
+    "bodyId": "murga-base-v1", "faceId": "face-round", "hairId": "hair-curly",
+    "outfitId": "outfit-murga", "hatId": "hat-carnival", "makeupId": "makeup-classic",
+    "paletteId": "emerald", "heightScale": 1, "skinToneId": "skin-warm", "hairColorId": "hair-dark"
+  }
+}

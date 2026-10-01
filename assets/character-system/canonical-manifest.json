@@ -1,0 +1,268 @@
+{
+  "systemId": "murga-human-v1",
+  "bodyTemplateVersion": 1,
+  "rigVersion": "murga-rig-v1",
+  "url": "/models/character-system/canonical.glb",
+  "referenceHeightMetres": 1.7,
+  "heightDefinition": "feet to bare scalp",
+  "topologyHash": "36b155fd276c3bb2e77afcf00f4a2de5bde540c20cb64e1917f05c595e432984",
+  "bindPoseHash": "6e75ecc5b5975716d6a10bcc965ec201e642a53684214eb377760e7c447ef70c",
+  "slots": [
+    {
+      "name": "Hat_Floral",
+      "skinned": false,
+      "triangles": 3852,
+      "vertices": 2512,
+      "materials": [
+        "Cloth",
+        "SatinBurgundy",
+        "Trim",
+        "SatinRed",
+        "Ruffles"
+      ]
+    },
+    {
+      "name": "Body",
+      "skinned": true,
+      "triangles": 3856,
+      "vertices": 2367,
+      "materials": [
+        "Rehearsal",
+        "Skin"
+      ]
+    },
+    {
+      "name": "Face_Round",
+      "skinned": true,
+      "triangles": 1332,
+      "vertices": 983,
+      "materials": [
+        "EyeWhite",
+        "Hair",
+        "Ink",
+        "Skin",
+        "Coral"
+      ]
+    },
+    {
+      "name": "Face_Oval",
+      "skinned": true,
+      "triangles": 1332,
+      "vertices": 983,
+      "materials": [
+        "EyeWhite",
+        "Hair",
+        "Ink",
+        "Skin",
+        "Coral"
+      ]
+    },
+    {
+      "name": "Face_Angular",
+      "skinned": true,
+      "triangles": 1040,
+      "vertices": 801,
+      "materials": [
+        "EyeWhite",
+        "Hair",
+        "Ink",
+        "Skin",
+        "Coral"
+      ]
+    },
+    {
+      "name": "Face_Heart",
+      "skinned": true,
+      "triangles": 1332,
+      "vertices": 983,
+      "materials": [
+        "EyeWhite",
+        "Hair",
+        "Ink",
+        "Skin",
+        "Coral"
+      ]
+    },
+    {
+      "name": "Hair_Curls",
+      "skinned": true,
+      "triangles": 2320,
+      "vertices": 1773,
+      "materials": [
+        "Hair"
+      ]
+    },
+    {
+      "name": "Hair_Curls_Hat",
+      "skinned": true,
+      "triangles": 1024,
+      "vertices": 784,
+      "materials": [
+        "Hair"
+      ]
+    },
+    {
+      "name": "Hair_Sweep",
+      "skinned": true,
+      "triangles": 1280,
+      "vertices": 928,
+      "materials": [
+        "Hair"
+      ]
+    },
+    {
+      "name": "Hair_Sweep_Hat",
+      "skinned": true,
+      "triangles": 544,
+      "vertices": 406,
+      "materials": [
+        "Hair"
+      ]
+    },
+    {
+      "name": "Outfit_Emerald",
+      "skinned": true,
+      "triangles": 9668,
+      "vertices": 6582,
+      "materials": [
+        "Cloth",
+        "Trim",
+        "Trouser",
+        "SatinBurgundy",
+        "SatinRed",
+        "Ruffles",
+        "Boot"
+      ]
+    },
+    {
+      "name": "Outfit_Festival",
+      "skinned": true,
+      "triangles": 9412,
+      "vertices": 6409,
+      "materials": [
+        "Cloth",
+        "Trim",
+        "Trouser",
+        "SatinBurgundy",
+        "SatinRed",
+        "Ruffles",
+        "Boot"
+      ]
+    },
+    {
+      "name": "Outfit_Patchwork",
+      "skinned": true,
+      "triangles": 9320,
+      "vertices": 6354,
+      "materials": [
+        "Cloth",
+        "Trim",
+        "Trouser",
+        "SatinBurgundy",
+        "SatinRed",
+        "Ruffles",
+        "Boot"
+      ]
+    },
+    {
+      "name": "Outfit_Bolero",
+      "skinned": true,
+      "triangles": 7220,
+      "vertices": 4986,
+      "materials": [
+        "Cloth",
+        "Trim",
+        "Trouser",
+        "SatinBurgundy",
+        "SatinRed",
+        "Ruffles",
+        "Boot"
+      ]
+    },
+    {
+      "name": "Outfit_LongCoat",
+      "skinned": true,
+      "triangles": 9388,
+      "vertices": 6367,
+      "materials": [
+        "Cloth",
+        "Trim",
+        "Trouser",
+        "SatinBurgundy",
+        "SatinRed",
+        "Ruffles",
+        "Boot"
+      ]
+    },
+    {
+      "name": "Outfit_Tails",
+      "skinned": true,
+      "triangles": 9140,
+      "vertices": 6245,
+      "materials": [
+        "Cloth",
+        "Trim",
+        "Trouser",
+        "SatinBurgundy",
+        "SatinRed",
+        "Ruffles",
+        "Boot"
+      ]
+    },
+    {
+      "name": "Outfit_Cape",
+      "skinned": true,
+      "triangles": 9452,
+      "vertices": 6420,
+      "materials": [
+        "Cloth",
+        "Trim",
+        "Trouser",
+        "SatinBurgundy",
+        "SatinRed",
+        "Ruffles",
+        "Boot"
+      ]
+    },
+    {
+      "name": "Outfit_Gala",
+      "skinned": true,
+      "triangles": 8132,
+      "vertices": 5544,
+      "materials": [
+        "Cloth",
+        "Trim",
+        "Trouser",
+        "SatinBurgundy",
+        "SatinRed",
+        "Ruffles",
+        "Boot"
+      ]
+    },
+    {
+      "name": "Makeup_Classic",
+      "skinned": true,
+      "triangles": 720,
+      "vertices": 399,
+      "materials": [
+        "Makeup"
+      ]
+    }
+  ],
+  "clips": [
+    "idle",
+    "singing",
+    "walking",
+    "conducting",
+    "percussion",
+    "arms-up",
+    "elbows-bent"
+  ],
+  "sockets": [
+    "head_hat",
+    "hand_l",
+    "hand_r",
+    "back_instrument"
+  ],
+  "sourceScript": "scripts/build-canonical-character.mjs"
+}

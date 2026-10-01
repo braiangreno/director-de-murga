@@ -1,0 +1,162 @@
+{
+  "version": 2,
+  "description": "Registro histórico de modelos estáticos recibidos. La escena usa el sistema de cuerpo común en /models/character-system/catalog.json.",
+  "components": {
+    "m-starter-0": {
+      "name": "Ana Pereira",
+      "assetName": "Mila the Mighty",
+      "role": "chorister",
+      "url": "/models/components/mila-the-mighty.glb",
+      "status": "ready",
+      "height": 1.7,
+      "rotationYDegrees": 0,
+      "cord": "Bajos"
+    },
+    "m-starter-1": {
+      "name": "Bruno Silva",
+      "role": "chorister",
+      "url": null,
+      "status": "awaiting-user",
+      "height": 1.7,
+      "rotationYDegrees": 0,
+      "cord": "Bajos"
+    },
+    "m-starter-2": {
+      "name": "Camila Rodríguez",
+      "role": "chorister",
+      "url": null,
+      "status": "awaiting-user",
+      "height": 1.7,
+      "rotationYDegrees": 0,
+      "cord": "Segundos"
+    },
+    "m-starter-3": {
+      "name": "Diego Sosa",
+      "role": "chorister",
+      "url": null,
+      "status": "awaiting-user",
+      "height": 1.7,
+      "rotationYDegrees": 0,
+      "cord": "Segundos"
+    },
+    "m-starter-4": {
+      "name": "Elena Cabrera",
+      "role": "chorister",
+      "url": null,
+      "status": "awaiting-user",
+      "height": 1.7,
+      "rotationYDegrees": 0,
+      "cord": "Segundos"
+    },
+    "m-starter-5": {
+      "name": "Facundo Acosta",
+      "role": "chorister",
+      "url": null,
+      "status": "awaiting-user",
+      "height": 1.7,
+      "rotationYDegrees": 0,
+      "cord": "Primos"
+    },
+    "m-starter-6": {
+      "name": "Gabriela González",
+      "role": "chorister",
+      "url": null,
+      "status": "awaiting-user",
+      "height": 1.7,
+      "rotationYDegrees": 0,
+      "cord": "Primos"
+    },
+    "m-starter-7": {
+      "name": "Hugo Duarte",
+      "role": "chorister",
+      "url": null,
+      "status": "awaiting-user",
+      "height": 1.7,
+      "rotationYDegrees": 0,
+      "cord": "Primos"
+    },
+    "m-starter-8": {
+      "name": "Inés Ferreira",
+      "role": "chorister",
+      "url": null,
+      "status": "awaiting-user",
+      "height": 1.7,
+      "rotationYDegrees": 0,
+      "cord": "Primos"
+    },
+    "m-starter-9": {
+      "name": "Joaquín Castro",
+      "role": "chorister",
+      "url": null,
+      "status": "awaiting-user",
+      "height": 1.7,
+      "rotationYDegrees": 0,
+      "cord": "Sobreprimos"
+    },
+    "m-starter-10": {
+      "name": "Lucía López",
+      "role": "chorister",
+      "url": null,
+      "status": "awaiting-user",
+      "height": 1.7,
+      "rotationYDegrees": 0,
+      "cord": "Sobreprimos"
+    },
+    "m-starter-11": {
+      "name": "Mateo Suárez",
+      "role": "chorister",
+      "url": null,
+      "status": "awaiting-user",
+      "height": 1.7,
+      "rotationYDegrees": 0,
+      "cord": "Tercias"
+    },
+    "m-starter-12": {
+      "name": "Natalia Pereira",
+      "role": "chorister",
+      "url": null,
+      "status": "awaiting-user",
+      "height": 1.7,
+      "rotationYDegrees": 0,
+      "cord": "Tercias"
+    },
+    "m-starter-13": {
+      "name": "Pablo Silva",
+      "role": "bombo",
+      "url": null,
+      "status": "awaiting-user",
+      "height": 1.7,
+      "rotationYDegrees": 0,
+      "cord": null
+    },
+    "m-starter-14": {
+      "name": "Rocío Rodríguez",
+      "role": "redoblante",
+      "url": null,
+      "status": "awaiting-user",
+      "height": 1.7,
+      "rotationYDegrees": 0,
+      "cord": null
+    },
+    "m-starter-15": {
+      "name": "Santiago Sosa",
+      "role": "platillos",
+      "url": null,
+      "status": "awaiting-user",
+      "height": 1.7,
+      "rotationYDegrees": 0,
+      "cord": null
+    },
+    "m-starter-16": {
+      "name": "Valentina Cabrera",
+      "role": "director",
+      "url": null,
+      "status": "awaiting-user",
+      "height": 1.7,
+      "rotationYDegrees": 0,
+      "cord": null
+    }
+  },
+  "runtimeCatalog": "/models/character-system/catalog.json",
+  "legacy": true
+}
