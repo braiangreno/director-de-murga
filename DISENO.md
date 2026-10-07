@@ -1,8 +1,46 @@
 # Director de Murga
 
-Documento de diseño del prototipo. La revisión vigente es **v7, del 7 de octubre de 2026**: añade la creación y preparación del espectáculo a la identidad y trayectoria de v6 y la vida comunitaria de v5. Las secciones v4 y v3 son antecedentes; sus versiones, calendarios y tareas pendientes no sustituyen el estado actual. Los valores concretos de balance están en `src/simulation.ts`. Esta actualización documental no acredita nuevas pruebas de navegador ni una compilación o ejecución nativa de v7.
+Documento de diseño del prototipo. La revisión vigente es **v8, del 7 de octubre de 2026**: añade acuerdos individuales de continuidad al espectáculo de v7, la identidad y trayectoria de v6 y la vida comunitaria de v5. Las secciones v4 y v3 son antecedentes; sus versiones, calendarios y tareas pendientes no sustituyen el estado actual. Los valores concretos de balance están en `src/simulation.ts`. La verificación funcional y visual de v8 está documentada en [QA-CONTRATOS-V8.md](QA-CONTRATOS-V8.md); la sincronización de proyectos nativos no acredita ejecución en teléfonos físicos.
 
-## Revisión vigente v7: crear el espectáculo
+## Revisión vigente v8: acordar la continuidad del elenco
+
+### El cierre anual y el nuevo armado
+
+`nextSeason` requiere una campaña terminada. Primero archiva el cierre con su caja, cuentas, espectáculo y trayectorias; después suma la financiación ficticia anual, actualiza edad, experiencia y fama y abre el armado de abril. Los 17 IDs del elenco pasan a `State.pendingRenewals`. **No se cobra ninguna renovación en el cambio de año**, ni se promete que todas las personas aceptarán continuar. La referencia de honorarios se actualiza con fama y experiencia públicas, sin usar la capacidad artística oculta.
+
+El año inicial comienza con sus 17 acuerdos confirmados. A partir del siguiente armado, iniciar la producción requiere resolver todas las plazas además de contratar los cinco oficios técnicos. Mientras quede algún contrato pendiente se bloquean las acciones que avanzan el calendario y el desarrollo del espectáculo. Se puede negociar, conversar dentro del cupo, contratar técnicos, elegir vestuario y buscar reemplazos sin adelantar la jornada, respetando la reserva de presupuesto para completar el elenco.
+
+### Oferta, aceptación y cobro
+
+`getRenewalQuote` devuelve el honorario, la disposición a aceptar y una explicación pública para cada oferta. La renovación estándar toma el **15% del honorario de referencia** del integrante. La generosa aplica **×1,20** y la preferencial **×1,45** sobre esa base; el resultado se redondea hacia arriba a centenas de UYU. Estas cifras, los niveles de oferta y las condiciones de aceptación son **balance ficticio del videojuego**, no convenios laborales, tarifas oficiales ni una descripción universal de cómo negocian las murgas reales. Los cachés por actuación siguen siendo un gasto separado.
+
+La continuidad pondera reputación de la murga, expectativas asociadas a la fama del integrante, vínculo construido, lealtad, ánimo y compromiso económico de la oferta. La habilidad interna no interviene. Una oferta mayor puede mejorar la disposición, pero no garantiza aceptación ni sustituye la caja necesaria. Las expectativas de reputación se recalculan al actualizar la fama en el cambio anual.
+
+`renewMember` cobra únicamente una oferta aceptada, la registra en `accounts.recruitment` y retira ese ID de pendientes. No consume jornada, no modifica las notas del concurso ni concede experiencia. Repetir la firma de alguien ya confirmado no vuelve a cobrar. Rechazos por condiciones, presupuesto o momento inválido conservan el estado económico y no deshacen el cierre del año anterior.
+
+`renewAllWilling` procesa ofertas **estándar** en el orden del elenco. Recalcula la caja y la reserva para las otras plazas antes de cada firma, omite a quienes rechazan o no pueden pagarse sin comprometer esa ruta y puede completar solo una parte del plantel. No aplica automáticamente las contraofertas seleccionadas en tarjetas individuales. `getRenewalSummary` informa confirmados, pendientes y referencia estándar del saldo pendiente: esa estimación no es un cargo ni una garantía de aceptación. `getSeasonRenewalCost` anticipa la referencia con las carreras del próximo año si la temporada terminó; durante un armado devuelve la de los pendientes actuales.
+
+### Conversar o reemplazar
+
+`contactMember` admite candidatos del mercado y componentes actuales con contrato pendiente; `contactCandidate` se conserva como entrada compatible. Ambos comparten **tres conversaciones por jornada** y la espera de **dos jornadas** para repetir persona. Son gratuitas y no adelantan el calendario. Con contratos pendientes no se puede usar descanso u otra actividad para renovar ese cupo: después de agotarlo, quedan la oferta económica o el reemplazo.
+
+Contratar a un candidato de la misma función resuelve la plaza saliente y deja al nuevo integrante confirmado mediante su pago de incorporación; no exige cobrarle además una renovación. La persona liberada vuelve al mercado con su identidad y carrera. Las firmas artísticas anteriores no se reembolsan al reemplazar a alguien.
+
+### Protección de presupuesto durante las negociaciones
+
+`getContractReserve` calcula una ruta viable y conservadora para las plazas pendientes, usando renovaciones aceptables o candidatos distintos de la misma función. Devuelve si esa ruta existe, su costo y pasos con integrante saliente, oferta, honorario y candidato cuando corresponda. Solo utiliza condiciones públicas y vínculos; no recomienda según talento. No pretende encontrar una combinación óptima ni obliga a seguir sus sustituciones.
+
+Mientras hay pendientes, cada gasto neto positivo se contrasta con la ruta que quedaría **después** de la operación. Si la caja resultante no alcanza para resolver el resto, o no se encuentra una ruta aceptable, la operación se rechaza sin cobrar. Esto alcanza renovaciones individuales y conjuntas, incorporaciones, audiciones, técnicos y confección. Una cotización de mercado considera la plaza concreta que se reemplaza. La reserva no es un cargo, no bloquea fondos en otra cuenta y no firma contratos automáticamente.
+
+Los reintegros siguen permitidos. Mientras no se inició la producción, cambiar una selección técnica devuelve el honorario anterior; cambiar de vestuarista devuelve también la confección pagada y borra esa propuesta. La protección se limita a las **plazas pendientes**: no incluye los cinco técnicos, el traje ni la preparación posterior, y deja de aplicarse cuando el elenco está confirmado. Por eso no equivale a una garantía general de solvencia de la temporada.
+
+### Guardado v8 y compatibilidad
+
+La clave activa es **`director-de-murga-v8`**. Los IDs pendientes forman parte de la partida, de modo que una recarga conserva firmas parciales y sus cobros. El validador exige IDs únicos del elenco actual y admite pendientes únicamente en temporada 2 o posterior, jornada interna 0, estado activo y producción sin iniciar. No acepta que una campaña avanzada conserve contratos sin resolver.
+
+La migración **v7 → v8** preserva todos los campos anteriores y añade **`pendingRenewals: []`**: los acuerdos existentes permanecen confirmados y no se cobran por segunda vez. Conserva dinero, contabilidad, avances del espectáculo, decisiones, resultados, archivo e identidades. No suma financiación ni aplica otra bonificación anual. Las migraciones desde versiones anteriores mantienen sus pasos previos. Las claves antiguas se conservan como respaldo y las apariencias siguen guardadas aparte, por ID.
+
+## Base funcional v7 conservada en v8: crear el espectáculo
 
 ### Título, tema y tres partes
 
@@ -20,7 +58,7 @@ El título admite de 2 a 60 caracteres normalizados, sin etiquetas ni controles.
 
 ### Trabajo técnico y ensayo
 
-`developShow` trabaja texto o arreglos de una parte. Requiere los cinco puestos técnicos contratados y producción iniciada, caja suficiente y una jornada disponible. Una decisión pendiente o una presentación oficial impiden adelantar trabajo por esta vía. Se puede desarrollar antes de julio; los ensayos del elenco mantienen su apertura desde julio.
+`developShow` trabaja texto o arreglos de una parte. Requiere los 17 acuerdos del elenco, los cinco puestos técnicos contratados y producción iniciada, caja suficiente y una jornada disponible. Una decisión pendiente o una presentación oficial impiden adelantar trabajo por esta vía. Se puede desarrollar antes de julio; los ensayos del elenco mantienen su apertura desde julio.
 
 | Actividad | Costo de balance | Tiempo | Efecto |
 | --- | --- | --- | --- |
@@ -42,15 +80,15 @@ Los arreglos y ensayos pueden aportar **hasta +4 al valor interno de voces** y e
 
 Las tareas representan gestión creativa. No generan letras reales, melodías, grabaciones ni nuevas prendas. El vestuario continúa con sus dos propuestas contratadas y su propia confección.
 
-### Archivo y guardado v7
+### Archivo del espectáculo incorporado en v7
 
-La clave activa es `director-de-murga-v7`. El título, tema, foco, bloqueo y avances sobreviven a la recarga. Al pasar de año se copia al cierre un `ShowSnapshot` con título, tema, avance total y las tres secciones; no comparte objetos mutables con el espectáculo siguiente. El plan del nuevo año vuelve a la propuesta inicial, foco general, sin bloqueo y con los nueve avances en cero.
+La clave histórica `director-de-murga-v7` incorporó los campos del espectáculo, ahora conservados en v8. El título, tema, foco, bloqueo y avances sobreviven a la recarga. Al pasar de año se copia al cierre un `ShowSnapshot` con título, tema, avance total y las tres secciones; no comparte objetos mutables con el espectáculo siguiente. El plan del nuevo año vuelve a la propuesta inicial, foco general, sin bloqueo y con los nueve avances en cero.
 
 La migración **v6 → v7** conserva identidad, carrera, elenco, candidatos, cuentas, decisiones, resultados y el resto de la partida. Añade el espectáculo inicial sin atribuirle trabajo que v6 no registraba. Los archivos anteriores reciben **`show: null`**, presentado como falta de registro, no como preparación cero de aquel año ni pérdida de su historia. Las notas ya obtenidas no se recalculan por migrar.
 
 Los nuevos archivos mantienen la publicación de resultados y el límite de 50 cierres definidos en v6. La migración no suma financiación, no cobra técnicos y no reinicia la temporada. Las claves anteriores permanecen respaldadas y las apariencias siguen en su guardado independiente.
 
-## Base funcional v6 conservada en v7: identidad y trayectoria
+## Base funcional v6 conservada en v8: identidad y trayectoria
 
 ### Una murga con nombre propio
 
@@ -62,7 +100,7 @@ La identidad se presenta en la sede, las conversaciones de mercado, la comunidad
 
 `getSeasonReport` devuelve un informe público del año actual: estado de la campaña, identidad, caja, cuentas, reputación, seguidores y elenco con sus datos públicos. Las notas de las ruedas, su total, promedio y puesto permanecen ocultos hasta los fallos; la admisión conserva su tratamiento separado y no se suma al concurso.
 
-Un `nextSeason` exitoso archiva la temporada que terminó **antes** de sumar financiación, descontar renovación y aplicar bonificaciones de experiencia o fama del nuevo año. Así, la caja y las carreras del cierre corresponden al año archivado. Una campaña en curso o una renovación que no puede pagarse no genera un cierre ni incrementa contadores.
+Un `nextSeason` exitoso archiva la temporada que terminó **antes** de sumar financiación y aplicar bonificaciones de experiencia o fama del nuevo año. Así, la caja y las carreras del cierre corresponden al año archivado. Una campaña en curso no genera un cierre ni incrementa contadores. Desde v8, las renovaciones se negocian y cobran después, en el nuevo armado; su aceptación no condiciona la existencia del archivo anterior.
 
 El paso de año también constituye el cierre público del carnaval: si el jugador eliminado en segunda rueda no había visitado el epílogo, las notas de ese año quedan publicadas en su archivo. Esto no descubre las notas del nuevo año ni crea una tercera actuación que no ocurrió.
 
@@ -83,13 +121,13 @@ Los ingresos de actividad incluyen actuaciones, aportes barriales y premios del 
 
 ### Identidad y continuidad incorporadas en v6
 
-La clave histórica `director-de-murga-v6` introdujo `identity`, `history` y contadores de carrera con `sinceSeason`, conservados ahora en v7 junto a los campos de v5. El archivo guarda copias independientes y se incorpora una sola vez al cierre. La interfaz consume las APIs públicas, que no exponen capacidades artísticas ocultas; el guardado local completo sigue conteniendo los datos internos necesarios para la simulación.
+La clave histórica `director-de-murga-v6` introdujo `identity`, `history` y contadores de carrera con `sinceSeason`, conservados ahora en v8 junto a los campos de v5. El archivo guarda copias independientes y se incorpora una sola vez al cierre. La interfaz consume las APIs públicas, que no exponen capacidades artísticas ocultas; el guardado local completo sigue conteniendo los datos internos necesarios para la simulación.
 
 La migración **v5 → v6** conserva los datos anteriores y agrega identidad inicial, historial vacío y contadores desde la temporada en curso. No deduce campeonatos pasados ni inventa planteles, balances o progresos que el guardado antiguo no registró. El primer cierre posterior a la actualización inicia el archivo real. Las comparaciones sin referencia siguen siendo desconocidas.
 
 Las claves anteriores quedan respaldadas. Las migraciones más antiguas conservan sus pasos previos: **v4 → v5** incorpora comunidad sin cambiar dinero; **v3 → v4** contiene la conversión histórica de calendario y economía documentada más abajo. Ninguno de esos ajustes debe atribuirse al cambio directo de v5 a v6. Las apariencias mantienen su clave separada y los mismos IDs.
 
-## Base funcional v5 conservada en v7: la vida de la murga
+## Base funcional v5 conservada en v8: la vida de la murga
 
 La campaña conserva el armado de abril, 32 jornadas representativas, 120 candidatos persistentes y un elenco de 17 integrantes. El mercado abre hasta terminar septiembre; se ensaya desde julio, la admisión ocurre en noviembre y el circuito de tablados empieza a fines de enero. Son fechas comprimidas de esta simulación. Las cinco contrataciones técnicas, la economía en UYU, las carreras entre temporadas y las propuestas de vestuario introducidas en v4 siguen vigentes.
 
@@ -99,7 +137,7 @@ La campaña conserva el armado de abril, 32 jornadas representativas, 120 candid
 
 - **Festival del barrio (`fundraiser`).** Hasta tres por temporada, antes de la apertura de tablados y fuera de las jornadas reservadas a preparación de admisión e inscripción. Consume una jornada y energía, exige caja para la organización y genera recaudación, seguidores y ánimo. La interfaz anticipa el saldo neto; la contabilidad separa ingresos brutos y gastos. No es una actuación del circuito comercial ni una fuente ilimitada de dinero.
 - **Encuentro del elenco (`community`).** Consume una jornada y un gasto de comida y materiales. Mejora ánimo, energía, lealtad y vínculo con el grupo; no aumenta habilidades ni experiencia artística por sí mismo. Los incrementos respetan los topes de cada recurso.
-- **Conversar con candidatos (`contactCandidate`).** Tres contactos gratuitos por jornada; dos jornadas de espera para volver a hablar con la misma persona. No adelanta el calendario. El vínculo influye de forma limitada en la negociación junto con reputación y oferta económica. No revela habilidad ni elimina las expectativas del candidato.
+- **Conversar (`contactMember`, con compatibilidad `contactCandidate`).** Tres contactos gratuitos por jornada; dos jornadas de espera para volver a hablar con la misma persona. Desde v8 incluye componentes con renovación pendiente, compartiendo el cupo con candidatos. No adelanta el calendario. El vínculo influye de forma limitada en la negociación junto con reputación y oferta económica. No revela habilidad ni elimina las expectativas de la persona.
 
 Los valores y límites anteriores son reglas del juego. [VIDA-DE-MURGA-FUENTES.md](VIDA-DE-MURGA-FUENTES.md) documenta festivales, financiación comunitaria, otros empleos y trabajo creativo colectivo. Las fuentes describen casos; no fijan estos cupos, efectos o costos ni un procedimiento universal para ensayar con lluvia.
 
@@ -122,11 +160,11 @@ Son situaciones ficticias con consecuencias de balance; no sanciones oficiales n
 
 La libreta de caja incorpora `communityIncome` y `communityCosts`: recaudación de festivales por un lado, organización, encuentros y opciones pagadas por otro. Estos movimientos participan en el mismo balance que contratos, confección, ensayos y actuaciones; no son premios externos a la contabilidad.
 
-Estos campos fueron introducidos en **v5**, con clave histórica `director-de-murga-v5`, y ahora se conservan dentro del guardado v7: ánimo, vínculos, última conversación de cada persona, cuota diaria, festivales utilizados, decisión pendiente e historial de decisiones. La resolución y sus efectos forman un único estado guardado; volver a cargar o pulsar de nuevo una opción ya resuelta no repite sus efectos. El elenco y los candidatos conservan sus campos al intercambiar una plaza.
+Estos campos fueron introducidos en **v5**, con clave histórica `director-de-murga-v5`, y ahora se conservan dentro del guardado v8: ánimo, vínculos, última conversación de cada persona, cuota diaria, festivales utilizados, decisión pendiente e historial de decisiones. La resolución y sus efectos forman un único estado guardado; volver a cargar o pulsar de nuevo una opción ya resuelta no repite sus efectos. El elenco y los candidatos conservan sus campos al intercambiar una plaza.
 
 La migración **v4 → v5** mantiene dinero, carreras, resultados y partidas contables anteriores. Inicializa los campos comunitarios y marca eventos pasados como anteriores a esta actualización, sin aplicar recompensas retroactivas. Si corresponde un evento a la jornada actual, se presenta pendiente. La migración **v3 → v4 → v5** conserva primero la conversión histórica de calendario y economía, incluida su financiación de transición; no confundir ese ajuste con la migración directa desde v4. Las claves anteriores se respaldan y un guardado activo inválido se copia a una clave de recuperación.
 
-Al cambiar de temporada se mantienen identidades y vínculos, se restablecen cuotas de conversación y festivales, se inicia otro historial anual y se modera el ánimo hacia su valor inicial. La financiación anual y la renovación del elenco siguen contabilizadas. No se puede abandonar una campaña en curso para conseguir experiencia o ingresos de un nuevo año.
+Al cambiar de temporada se mantienen identidades y vínculos, se restablecen cuotas de conversación y festivales, se inicia otro historial anual y se modera el ánimo hacia su valor inicial. La financiación anual se suma en el cambio de año; desde v8, la renovación se contabiliza después, al firmar los acuerdos. No se puede abandonar una campaña en curso para conseguir experiencia o ingresos de un nuevo año.
 
 ### Vestuario contratado y probador
 
@@ -150,7 +188,7 @@ Evidencia, fechas, precios históricos y límites: [ECONOMIA-Y-CARRERAS-FUENTES.
 
 ## Antecedente v3: especificación histórica
 
-**Archivo de diseño:** las secciones restantes conservan propuestas y límites de v3. El calendario, las funciones y el guardado vigentes están descritos arriba en v7 y sus bases funcionales v6 y v5.
+**Archivo de diseño:** las secciones restantes conservan propuestas y límites de v3. El calendario, las funciones y el guardado vigentes están descritos arriba en v8 y sus bases funcionales v7, v6 y v5.
 
 ## Propuesta
 

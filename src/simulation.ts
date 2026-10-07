@@ -82,7 +82,8 @@ export const OUTCOME_LABELS: Record<SeasonOutcome | 'in-progress', string> = {
 };
 
 export interface State {
-  version: 7; identity: MurgaIdentity; history: SeasonArchive[]; career: CareerCounters; show: ShowState;
+  version: 8; identity: MurgaIdentity; history: SeasonArchive[]; career: CareerCounters; show: ShowState;
+  pendingRenewals: string[];
   season: number; day: number; money: number; fans: number; reputation: number;
   productionStarted: boolean; admissionExempt: boolean; creativeTeam: Record<CreativeRole, string | null>;
   creativeFees: Record<CreativeRole, number>; costumeProposalId: string | null;
@@ -181,7 +182,7 @@ function copy(state:State):State {
   return {...state,identity:{...state.identity},history:state.history.map(cloneArchive),career:{...state.career},show:cloneShow(state.show),creativeTeam:{...state.creativeTeam},creativeFees:{...state.creativeFees},accounts:{...state.accounts},
     members:state.members.map(m=>({...m})),candidates:state.candidates.map(m=>({...m})),upgrades:{...state.upgrades},
     results:state.results.map(r=>({...r})),rivals:state.rivals.map(r=>({...r,scores:[...r.scores]})),log:[...state.log],
-    resolvedDecisions:[...state.resolvedDecisions],decisionHistory:state.decisionHistory.map(d=>({...d}))};
+    resolvedDecisions:[...state.resolvedDecisions],decisionHistory:state.decisionHistory.map(d=>({...d})),pendingRenewals:[...state.pendingRenewals]};
 }
 function notice(state:State,message:string):State { return {...state,lastMessage:message}; }
 function log(state:State,message:string):void { state.lastMessage=message; state.log=[message,...state.log].slice(0,30); }
@@ -206,7 +207,7 @@ function makeCandidate(state:State,index:number):Member {
     scouting:0,participation:0,morale:70,rapport:0,lastContactDay:-1};
 }
 export function createGame(seed=2026):State {
-  const state:State={version:7,identity:{...DEFAULT_IDENTITY},history:[],career:{sinceSeason:1,completedSeasons:0,championships:0,finals:0},show:emptyShow(),season:1,day:0,money:INITIAL_BUDGET,fans:40,reputation:20,productionStarted:false,admissionExempt:false,
+  const state:State={version:8,identity:{...DEFAULT_IDENTITY},history:[],career:{sinceSeason:1,completedSeasons:0,championships:0,finals:0},show:emptyShow(),pendingRenewals:[],season:1,day:0,money:INITIAL_BUDGET,fans:40,reputation:20,productionStarted:false,admissionExempt:false,
     creativeTeam:emptyTeam(),creativeFees:emptyFees(),costumeProposalId:null,accounts:emptyAccounts(INITIAL_BUDGET),fallosRevealed:false,
     contactsToday:0,fundraisersUsed:0,pendingDecision:null,resolvedDecisions:[],decisionHistory:[],
     members:[],candidates:[],upgrades:{voices:0,lyrics:0,costumes:0,staging:0},licensed:false,penalty:0,results:[],
@@ -326,6 +327,8 @@ export function hireCreative(state:State,candidateId:string):State {
   const costumeRefund=candidate.role==='costumes'?state.accounts.costume:0;
   const adjustment=candidate.fee-refund-costumeRefund;
   if(state.money<adjustment) return notice(state,'No alcanza el presupuesto para esos honorarios.');
+  const reserveReason=contractSpendingReason(state,{...state,money:state.money-adjustment});
+  if(reserveReason) return notice(state,reserveReason);
   const next=copy(state);
   next.money-=adjustment; next.accounts.technical+=candidate.fee-refund;
   next.creativeTeam[candidate.role]=candidate.id; next.creativeFees[candidate.role]=candidate.fee;
@@ -355,12 +358,15 @@ export function chooseCostumeProposal(state:State,id:string):State {
   if(state.costumeProposalId===id) return notice(state,'Esta propuesta ya está elegida y pagada.');
   const adjustment=proposal.cost-state.accounts.costume;
   if(state.money<adjustment) return notice(state,`Faltan $${adjustment-state.money} UYU para esta confección.`);
+  const reserveReason=contractSpendingReason(state,{...state,money:state.money-adjustment});
+  if(reserveReason) return notice(state,reserveReason);
   const next=copy(state); next.money-=adjustment;next.accounts.costume=proposal.cost;next.costumeProposalId=id;
   log(next,`Vestuario elegido: ${proposal.name}, de ${proposal.description.split(':')[0].replace('Propuesta de ','')}. Confección: $${proposal.cost} UYU; los honorarios del oficio se presupuestan aparte.`);
   return next;
 }
 export function startSeason(state:State):State {
   if(state.productionStarted || state.status!=='playing') return notice(state,'La producción de esta temporada ya comenzó.');
+  if(state.pendingRenewals.length) return notice(state,`Falta acordar ${state.pendingRenewals.length} contrato(s) del elenco. Negociá o reemplazá a quienes no continúen antes de iniciar la producción.`);
   const summary=getProductionSummary(state);
   if(!summary.ready) return notice(state,`Falta contratar ${summary.required-summary.hired} puesto(s) técnicos.`);
   const next=copy(state);next.productionStarted=true;
@@ -422,6 +428,7 @@ export function getShowWorkAvailability(state:State,sectionId:ShowSectionId,work
   const cost=SHOW_WORK_COSTS[work],gain=round(Math.min(100-state.show.sections[sectionId][work],showWorkGain(state,work)));
   const denied=(reason:string)=>({enabled:false,reason,cost,gain});
   if(state.status!=='playing') return denied('La temporada terminó. Prepará otro espectáculo al comenzar el próximo año.');
+  if(state.pendingRenewals.length) return denied('Resolvé los contratos pendientes del elenco antes de avanzar la producción.');
   if(!state.productionStarted) return denied('Contratá los cinco puestos técnicos e iniciá la producción antes de desarrollar el espectáculo.');
   if(getPendingDecision(state)) return denied('Resolvé la decisión del grupo antes de avanzar esta jornada.');
   if(EVENTS.some(event=>event.day===state.day)) return denied(`Hoy toca ${getCalendar(state).eventName}. Presentate para continuar.`);
@@ -655,23 +662,25 @@ export function getCommunitySummary(state: State): {
 export function getContactAvailability(state: State, id: string): {enabled:boolean;reason:string} {
   const market=getRecruitmentAvailability(state);
   if (!market.enabled) return market;
-  const candidate=state.candidates.find(member=>member.id===id);
-  if (!candidate) return {enabled:false,reason:'Solo podés contactar personas disponibles en el mercado.'};
+  const candidate=state.candidates.find(member=>member.id===id)??state.members.find(member=>member.id===id&&state.pendingRenewals.includes(id));
+  if (!candidate) return {enabled:false,reason:'Podés contactar personas del mercado o integrantes con un contrato pendiente.'};
   if (state.contactsToday>=CONTACTS_PER_DAY) return {enabled:false,reason:'Ya usaste las tres conversaciones de esta jornada. Se renuevan al avanzar el calendario.'};
   if (candidate.lastContactDay>=0 && state.day-candidate.lastContactDay<CONTACT_COOLDOWN)
     return {enabled:false,reason:'Dale tiempo a la conversación: podés volver a contactar a esta persona después de dos jornadas.'};
   if (candidate.rapport>=100) return {enabled:false,reason:'El vínculo ya está afianzado. Podés presentar una oferta.'};
   return {enabled:true,reason:'Conversación gratuita sobre el proyecto; mejora el vínculo, sin revelar la habilidad.'};
 }
-export function contactCandidate(state: State, id: string): State {
+export function contactMember(state: State, id: string): State {
   const availability=getContactAvailability(state,id);
   if (!availability.enabled) return notice(state,availability.reason);
-  const next=copy(state), candidate=next.candidates.find(member=>member.id===id)!;
+  const next=copy(state), candidate=[...next.candidates,...next.members].find(member=>member.id===id)!;
   candidate.rapport=clamp(candidate.rapport+15); candidate.lastContactDay=state.day;
   next.contactsToday++;
   log(next,`Conversaste con ${candidate.name} sobre la propuesta artística y la forma de trabajar. El vínculo creció; todavía puede exigir reputación u honorarios acordes.`);
   return next;
 }
+/** Compatibility name: the same contact rules apply to the market and pending renewals. */
+export function contactCandidate(state:State,id:string):State { return contactMember(state,id); }
 
 export function getEconomySummary(state:State) {
   const shows=ECONOMY_COSTS.showsPerAction, transport=ECONOMY_COSTS.transport*shows;
@@ -683,6 +692,7 @@ export function getEconomySummary(state:State) {
 }
 export function getActionAvailability(state:State,action:Action):{enabled:boolean;reason:string} {
   if(state.status!=='playing') return {enabled:false,reason:'La temporada terminó. Continuá a la siguiente para conservar las carreras del elenco.'};
+  if(state.pendingRenewals.length) return {enabled:false,reason:'Resolvé los contratos pendientes del elenco antes de avanzar el calendario.'};
   if(!state.productionStarted) return {enabled:false,reason:'Contratá los cinco puestos técnicos e iniciá la producción antes de ensayar.'};
   if(!['rehearse','popular','commercial','rest','compete','fundraiser','community'].includes(action)) return {enabled:false,reason:'Acción desconocida.'};
   if(getPendingDecision(state)) return {enabled:false,reason:'Resolvé la decisión del grupo antes de avanzar esta jornada.'};
@@ -840,19 +850,118 @@ export function getRecruitmentReplacement(state:State,id:string,replaceId?:strin
   return state.members.find(m=>m.role===candidate.role)??null;
 }
 const OFFER_MULTIPLIERS:Record<RecruitmentOffer,number>={standard:1,generous:1.2,premium:1.45};
-export function getRecruitmentQuote(state:State,id:string,offer:RecruitmentOffer='standard'):{
+const OFFERS:RecruitmentOffer[]=['standard','generous','premium'];
+const offerCommitment=(offer:RecruitmentOffer)=>offer==='standard'?0:offer==='generous'?8:16;
+function renewalFee(referenceCost:number,offer:RecruitmentOffer='standard'):number {
+  return Math.ceil(referenceCost*.15*OFFER_MULTIPLIERS[offer]/100)*100;
+}
+function recruitmentFee(member:Member,offer:RecruitmentOffer):number {return Math.ceil(member.cost*OFFER_MULTIPLIERS[offer]/100)*100;}
+function willingToJoin(state:State,member:Member,offer:RecruitmentOffer):boolean {
+  return state.reputation+offerCommitment(offer)+Math.min(10,member.rapport*.12)>=member.minReputation+(member.loyalty>=75?3:0);
+}
+function willingToRenew(state:State,member:Member,offer:RecruitmentOffer):boolean {
+  const relationship=Math.min(10,member.rapport*.12),continuity=Math.max(0,member.loyalty-50)*.2;
+  const required=member.minReputation+Math.max(0,60-member.loyalty)*.2+Math.max(0,70-member.morale)*.15;
+  return state.reputation+offerCommitment(offer)+relationship+continuity>=required;
+}
+export interface ContractPlanStep {memberId:string;kind:'renewal'|'replacement';candidateId:string|null;offer:RecruitmentOffer;fee:number;}
+/** A conservative feasible route, based only on public contracts and relationships, not artistic ability. */
+export function getContractReserve(state:State):{possible:boolean;cost:number;reason:string;plan:ContractPlanStep[]} {
+  if(!state.pendingRenewals.length) return {possible:true,cost:0,reason:'El elenco ya tiene sus contratos confirmados.',plan:[]};
+  const market=state.candidates.map(member=>{
+    const offer=OFFERS.find(offer=>willingToJoin(state,member,offer));
+    return offer?{member,offer,fee:recruitmentFee(member,offer)}:null;
+  }).filter((option):option is NonNullable<typeof option>=>option!==null).sort((a,b)=>a.fee-b.fee||a.member.id.localeCompare(b.member.id));
+  const pending=state.members.filter(member=>state.pendingRenewals.includes(member.id)).map(member=>{
+    const offer=OFFERS.find(offer=>willingToRenew(state,member,offer));
+    return {member,offer,fee:offer?renewalFee(member.cost,offer):Infinity};
+  }).sort((a,b)=>b.fee-a.fee||a.member.id.localeCompare(b.member.id));
+  const used=new Set<string>(),plan:ContractPlanStep[]=[];
+  // Resolve mandatory replacements first; expensive renewals then get first choice of cheaper alternatives.
+  for(const current of pending) {
+    const alternative=market.find(option=>option.member.role===current.member.role&&!used.has(option.member.id));
+    if(current.offer&&(!alternative||current.fee<=alternative.fee))
+      plan.push({memberId:current.member.id,kind:'renewal',candidateId:null,offer:current.offer,fee:current.fee});
+    else if(alternative) {
+      used.add(alternative.member.id);
+      plan.push({memberId:current.member.id,kind:'replacement',candidateId:alternative.member.id,offer:alternative.offer,fee:alternative.fee});
+    } else return {possible:false,cost:0,reason:'No hay todavía una oferta aceptable o un reemplazo disponible para cada contrato pendiente. Conversá o revisá las alternativas antes de gastar.',plan:[]};
+  }
+  const cost=plan.reduce((sum,step)=>sum+step.fee,0);
+  return {possible:true,cost,reason:`Reservá $${cost} UYU para una ruta de acuerdos y reemplazos aceptables. No se cobra hasta confirmar cada contrato.`,plan};
+}
+function contractSpendingReason(before:State,after:State):string {
+  if(!before.pendingRenewals.length||after.money>=before.money) return '';
+  const reserve=getContractReserve(after);
+  if(!reserve.possible) return reserve.reason;
+  return after.money<reserve.cost?`Este gasto dejaría $${after.money} UYU, pero necesitás reservar $${reserve.cost} UYU para resolver los contratos restantes. Elegí una alternativa más económica o recuperá gastos reversibles.`:'';
+}
+function afterRecruitment(state:State,incoming:Member,replaced:Member,fee:number):State {
+  return {...state,money:state.money-fee,pendingRenewals:state.pendingRenewals.filter(id=>id!==replaced.id),
+    members:state.members.map(member=>member.id===replaced.id?incoming:member),
+    candidates:state.candidates.map(member=>member.id===incoming.id?replaced:member)};
+}
+export function getRenewalQuote(state:State,id:string,offer:RecruitmentOffer='standard'):{fee:number;accepted:boolean;interest:string;reason:string} {
+  const member=state.members.find(member=>member.id===id);
+  if(!member||!Object.hasOwn(OFFER_MULTIPLIERS,offer))
+    return {fee:0,accepted:false,interest:'No disponible',reason:'Componente u oferta desconocidos.'};
+  if(!state.pendingRenewals.includes(id))
+    return {fee:0,accepted:false,interest:'Contrato confirmado',reason:'Este integrante ya tiene un acuerdo para la temporada.'};
+  const fee=renewalFee(member.cost,offer);
+  if(state.status!=='playing'||state.day!==0||state.productionStarted)
+    return {fee,accepted:false,interest:'Fuera del armado',reason:'Las renovaciones se resuelven al comenzar abril, antes de iniciar la producción.'};
+  if(!willingToRenew(state,member,offer))
+    return {fee,accepted:false,interest:'Pide mejores condiciones',reason:'La reputación del proyecto, su trayectoria, el vínculo, la lealtad y el ánimo influyen en su continuidad. Podés conversar, mejorar la oferta o buscar un reemplazo.'};
+  if(state.money<fee)
+    return {fee,accepted:false,interest:'Interés, pero falta presupuesto',reason:'Quiere continuar, pero la oferta supera la caja disponible.'};
+  const reserveReason=contractSpendingReason(state,{...state,money:state.money-fee,pendingRenewals:state.pendingRenewals.filter(pending=>pending!==id)});
+  if(reserveReason) return {fee,accepted:false,interest:'Hay que reservar presupuesto',reason:reserveReason};
+  return {fee,accepted:true,interest:'Aceptaría renovar',reason:'Acuerdo por esta temporada. El honorario de renovación y los cachés por actuación se pagan por separado.'};
+}
+export function getRenewalSummary(state:State):{pending:number;signed:number;total:number;estimatedCost:number} {
+  const pending=state.pendingRenewals.length;
+  return {pending,signed:state.members.length-pending,total:state.members.length,
+    estimatedCost:state.members.filter(member=>state.pendingRenewals.includes(member.id)).reduce((sum,member)=>sum+renewalFee(member.cost),0)};
+}
+export function renewMember(state:State,id:string,offer:RecruitmentOffer='standard'):State {
+  const quote=getRenewalQuote(state,id,offer);
+  if(!quote.accepted) return notice(state,quote.reason);
+  const next=copy(state);
+  next.money-=quote.fee;next.accounts.recruitment+=quote.fee;
+  next.pendingRenewals=next.pendingRenewals.filter(pending=>pending!==id);
+  log(next,`${next.members.find(member=>member.id===id)!.name} renovó por $${quote.fee} UYU con oferta ${offer==='standard'?'estándar':offer==='generous'?'generosa':'preferencial'}. Quedan ${next.pendingRenewals.length} contratos pendientes.`);
+  return next;
+}
+export function renewAllWilling(state:State):State {
+  if(!state.pendingRenewals.length) return notice(state,'Los contratos del elenco ya están confirmados.');
+  const next=copy(state);
+  let signed=0,totalPaid=0;
+  // Stable roster order and a fresh quote each time prevent overspending in a partial batch.
+  for(const member of next.members) {
+    if(!next.pendingRenewals.includes(member.id)) continue;
+    const quote=getRenewalQuote(next,member.id);
+    if(!quote.accepted) continue;
+    next.money-=quote.fee;next.accounts.recruitment+=quote.fee;
+    next.pendingRenewals=next.pendingRenewals.filter(id=>id!==member.id);signed++;totalPaid+=quote.fee;
+  }
+  if(!signed) return notice(state,'No se cerraron acuerdos: revisá las condiciones solicitadas y la caja disponible.');
+  log(next,`${signed} contrato(s) renovados con oferta estándar por $${totalPaid} UYU. Quedan ${next.pendingRenewals.length} pendientes; no se cobró por quienes rechazaron o no pudieron pagarse.`);
+  return next;
+}
+export function getRecruitmentQuote(state:State,id:string,offer:RecruitmentOffer='standard',replaceId?:string):{
   fee:number;interest:string;reason:string;accepted:boolean;
 } {
   const candidate=state.candidates.find(m=>m.id===id);
   if(!candidate || !Object.hasOwn(OFFER_MULTIPLIERS,offer)) return {fee:0,interest:'No disponible',reason:'Perfil u oferta desconocidos.',accepted:false};
-  const fee=Math.ceil(candidate.cost*OFFER_MULTIPLIERS[offer]/100)*100;
+  const fee=recruitmentFee(candidate,offer);
   const market=getRecruitmentAvailability(state);
   if(!market.enabled) return {fee,interest:'Mercado cerrado',reason:market.reason,accepted:false};
-  const commitment=offer==='standard'?0:offer==='generous'?8:16;
-  const required=candidate.minReputation+(candidate.loyalty>=75?3:0);
-  const relationship=Math.min(10,candidate.rapport*.12);
-  if(state.reputation+commitment+relationship<required) return {fee,interest:'Rechazaría la oferta',reason:'Busca una murga con más reputación, mayor confianza en el proyecto o un compromiso económico mayor. Su fama no garantiza su talento.',accepted:false};
+  if(!willingToJoin(state,candidate,offer)) return {fee,interest:'Rechazaría la oferta',reason:'Busca una murga con más reputación, mayor confianza en el proyecto o un compromiso económico mayor. Su fama no garantiza su talento.',accepted:false};
   if(state.money<fee) return {fee,interest:'Interés, pero falta presupuesto',reason:'La oferta supera la caja disponible.',accepted:false};
+  const replaced=getRecruitmentReplacement(state,id,replaceId);
+  if(!replaced) return {fee,interest:'Reemplazo inválido',reason:'La contratación debe reemplazar a un componente de la misma función.',accepted:false};
+  const reserveReason=contractSpendingReason(state,afterRecruitment(state,candidate,replaced,fee));
+  if(reserveReason) return {fee,interest:'Hay que reservar presupuesto',reason:reserveReason,accepted:false};
   return {fee,interest:'Aceptaría la oferta',reason:'Acuerdo de incorporación por esta temporada; cachés por actuación aparte.',accepted:true};
 }
 export function getMemberReport(_state:State,member:Member):{label:string;detail:string} {
@@ -869,13 +978,15 @@ export function scoutMember(state:State,id:string):State {
   if(!member) return notice(state,'Ese componente no está disponible para una audición.');
   if(member.scouting>0) return notice(state,'Ya tenés un informe de este componente; otra audición no revela un número exacto.');
   if(state.money<AUDITION_COST) return notice(state,`La audición cuesta $${AUDITION_COST} UYU.`);
+  const reserveReason=contractSpendingReason(state,{...state,money:state.money-AUDITION_COST});
+  if(reserveReason) return notice(state,reserveReason);
   const next=copy(state);next.money-=AUDITION_COST;next.accounts.auditions+=AUDITION_COST;
   const target=[...next.members,...next.candidates].find(m=>m.id===id)!;target.scouting=1;
   log(next,`Audición de ${target.name}: ${getMemberReport(next,target).label}. Costo $${AUDITION_COST} UYU; no avanza el calendario.`);
   return next;
 }
 export function recruit(state:State,id:string,replaceId?:string,offer:RecruitmentOffer='standard'):State {
-  const quote=getRecruitmentQuote(state,id,offer);
+  const quote=getRecruitmentQuote(state,id,offer,replaceId);
   if(!quote.accepted) return notice(state,quote.reason);
   const incoming=state.candidates.find(m=>m.id===id)!;
   const replaced=getRecruitmentReplacement(state,id,replaceId);
@@ -884,6 +995,7 @@ export function recruit(state:State,id:string,replaceId?:string,offer:Recruitmen
   next.members=next.members.map(m=>m.id===replaced.id?{...incoming,assignedCord:replaced.assignedCord,energy:100,participation:0}:m);
   // Released components remain in the persistent market with their actual career.
   next.candidates=next.candidates.map(m=>m.id===id?{...replaced,assignedCord:replaced.cord,participation:0,energy:100}:m);
+  next.pendingRenewals=next.pendingRenewals.filter(id=>id!==replaced.id);
   log(next,`${incoming.name} aceptó la oferta ${offer==='standard'?'estándar':offer==='generous'?'generosa':'preferencial'} por $${quote.fee} UYU en lugar de ${replaced.name}. Su carrera continúa; no hay reembolso de contratos artísticos.`);
   return next;
 }
@@ -930,7 +1042,13 @@ export function refreshCandidates(state:State):State {
   return notice(state,'El directorio ya incluye 120 componentes ficticios. Las personas y sus carreras son persistentes; actualizar no cambia su talento ni sortea nombres nuevos.');
 }
 export function getSeasonRenewalCost(state:State):number {
-  return state.members.reduce((sum,member)=>sum+Math.ceil(member.cost*.15/100)*100,0);
+  if(state.status==='playing') return getRenewalSummary(state).estimatedCost;
+  return state.members.reduce((sum,member)=>sum+renewalFee(nextReferenceCost(state,member)),0);
+}
+function nextReferenceCost(state:State,member:Member):number {
+  const experience=round(clamp(member.experience+Math.min(4,member.participation*.15)));
+  const fame=clamp(member.fame+(state.status==='won'?8:state.results.length>=3?3:1));
+  return Math.round((18000+fame*850+experience*200)/500)*500;
 }
 export function nextSeason(state:State):State {
   if(state.status==='playing') return notice(state,'Primero terminá la participación de esta temporada.');
@@ -943,16 +1061,15 @@ export function nextSeason(state:State):State {
   next.show=emptyShow();
   next.upgrades={voices:0,lyrics:0,costumes:0,staging:0};next.licensed=false;next.results=[];
   next.rivals.forEach(r=>{r.scores=[];});
-  const renewal=getSeasonRenewalCost(state);
-  if(next.money+SEASON_FINANCING<renewal) return notice(state,'La financiación anual no alcanza para renovar este elenco. Revisá la caja antes de iniciar otro año.');
   archiveFinishedSeason(next,state);
   next.money+=SEASON_FINANCING;next.accounts=emptyAccounts(next.money);
-  next.money-=renewal;next.accounts.recruitment=renewal;
+  next.pendingRenewals=next.members.map(member=>member.id);
   for(const member of next.members) {
     member.experience=round(clamp(member.experience+Math.min(4,member.participation*.15)));
     member.seasons++;member.age++;member.loyalty=clamp(member.loyalty+(member.participation?4:0));
     member.fame=clamp(member.fame+(state.status==='won'?8:state.results.length>=3?3:1));member.rarity=fameRarity(member.fame);
     member.cost=Math.round((18000+member.fame*850+member.experience*200)/500)*500;
+    member.minReputation=Math.max(0,Math.round(member.fame*.65-8));
     member.energy=100;member.participation=0;member.lastContactDay=-1;member.morale=round((member.morale+70)/2);
   }
   for(const member of next.candidates) {
@@ -961,7 +1078,7 @@ export function nextSeason(state:State):State {
     member.cost=Math.round((18000+member.fame*850+member.experience*200)/500)*500;
     member.minReputation=Math.max(0,Math.round(member.fame*.65-8));member.energy=100;member.participation=0;member.lastContactDay=-1;member.morale=round((member.morale+70)/2);
   }
-  log(next,`Nueva temporada: abril. Conservás elenco, trayectorias, reputación y $${state.money} UYU de remanente. Financiación ficticia: $${SEASON_FINANCING} UYU; renovación del elenco: $${renewal} UYU (15% de cada honorario de referencia, redondeado a centenas). Los contratos técnicos y el espectáculo se preparan otra vez.`);
+  log(next,`Nueva temporada: abril. Conservás las trayectorias, la reputación y $${state.money} UYU de remanente. Financiación ficticia: $${SEASON_FINANCING} UYU. Hay ${next.pendingRenewals.length} contratos pendientes; todavía no se cobró ninguna renovación. Acordá las condiciones o buscá reemplazos antes de iniciar la producción.`);
   return next;
 }
 
@@ -1034,6 +1151,10 @@ function migrateV6(raw:Record<string,unknown>):unknown {
   return {...raw,version:7,show:emptyShow(),history:raw.history.map(entry=>
     entry&&typeof entry==='object'&&!Array.isArray(entry)?{...entry,show:null}:entry)};
 }
+/** Existing v7 contracts were paid under the previous model; never charge them a second time. */
+function migrateV7(raw:Record<string,unknown>):unknown {
+  return {...raw,version:8,pendingRenewals:[]};
+}
 
 /** Reject corrupted/out-of-schema saves; local saves are not an anti-cheat security boundary. */
 export function parseSave(raw: string | null): State | null {
@@ -1065,7 +1186,8 @@ export function parseSave(raw: string | null): State | null {
     if(object(value)&&value.version===4) value=migrateV4(value);
     if(object(value)&&value.version===5) value=migrateV5(value);
     if(object(value)&&value.version===6) value=migrateV6(value);
-    if (!object(value) || value.version !== 7 || !number(value.season, 1, 10000, true) || !number(value.day, 0, TOTAL_DAYS - 1, true) ||
+    if(object(value)&&value.version===7) value=migrateV7(value);
+    if (!object(value) || value.version !== 8 || !number(value.season, 1, 10000, true) || !number(value.day, 0, TOTAL_DAYS - 1, true) ||
       !number(value.money, 0, 1000000000, true) || !number(value.fans, 0, 1000000000, true) || !number(value.seed, 0, 4294967295, true) ||
       typeof value.licensed !== 'boolean' || typeof value.productionStarted !== 'boolean' || typeof value.fallosRevealed !== 'boolean' || value.penalty !== 0 || !['playing', 'won', 'lost'].includes(value.status as string) ||
       !text(value.lastMessage, 1000) || !Array.isArray(value.log) || value.log.length > 30 || !value.log.every(item => text(item, 1000))) return null;
@@ -1090,6 +1212,10 @@ export function parseSave(raw: string | null): State | null {
       object(rival) && rival.id === `r-${i}` && rival.name === RIVAL_NAMES[i] && Array.isArray(rival.scores) &&
       rival.scores.length <= 3 && rival.scores.every(item => score(item, 40)))) return null;
     const state = value as unknown as State;
+    if(!Array.isArray(state.pendingRenewals)||state.pendingRenewals.length>17||
+      new Set(state.pendingRenewals).size!==state.pendingRenewals.length||
+      !state.pendingRenewals.every(id=>typeof id==='string'&&state.members.some(member=>member.id===id))||
+      (state.pendingRenewals.length>0&&(state.season<2||state.day!==0||state.productionStarted||state.status!=='playing'))) return null;
     if(!object(state.show)||!exactKeys(state.show as unknown as Record<string,unknown>,['title','themeId','focus','locked','sections'])||
       !showPlan(state.show as unknown as Record<string,unknown>)||typeof state.show.locked!=='boolean'||
       (state.show.focus!=='general'&&!SHOW_SECTIONS.some(section=>section.id===state.show.focus))||

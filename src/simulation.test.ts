@@ -12,6 +12,7 @@ import {
   setIdentity,validateIdentity,getSeasonReport,getSeasonHistory,getRosterProgress,getCareerSummary,HISTORY_LIMIT,
   SHOW_THEMES,SHOW_SECTIONS,validateShowPlan,configureShow,setRehearsalFocus,developShow,getShowSummary,getShowWorkAvailability,
   type ShowSectionId,type ShowWork,type RehearsalFocus,
+  getRenewalQuote,getRenewalSummary,renewMember,renewAllWilling,contactMember,getContractReserve,
   type State,type Action,type Member,
 } from './simulation';
 
@@ -23,7 +24,7 @@ function setup(seed=2026):State {
 function started(seed=2026):State {return startSeason(setup(seed));}
 function save(state:State):void {assert.deepEqual(parseSave(JSON.stringify(state)),state,state.lastMessage);}
 function toV4(state:State):Record<string,unknown> {
-  const {contactsToday,fundraisersUsed,pendingDecision,resolvedDecisions,decisionHistory,show,...old}=state;
+  const {contactsToday,fundraisersUsed,pendingDecision,resolvedDecisions,decisionHistory,show,pendingRenewals,...old}=state;
   const {communityIncome,communityCosts,...accounts}=state.accounts;
   const oldMember=(member:Member)=>{const {morale,rapport,lastContactDay,...rest}=member;return rest;};
   return {...old,version:4,accounts,members:state.members.map(oldMember),candidates:state.candidates.map(oldMember)};
@@ -211,8 +212,9 @@ test('experience grows from practice and exactly one annual settlement preserves
   assert.equal(original.members[0].participation,0);
   const ended=win(),newYear=nextSeason(ended);
   assert.equal(newYear.season,ended.season+1);assert.equal(newYear.day,0);assert.equal(newYear.productionStarted,false);
-  assert.equal(newYear.money,ended.money+SEASON_FINANCING-getSeasonRenewalCost(ended));assert.equal(newYear.reputation,ended.reputation);
-  assert.equal(newYear.accounts.recruitment,getSeasonRenewalCost(ended));
+  assert.equal(newYear.money,ended.money+SEASON_FINANCING);assert.equal(newYear.reputation,ended.reputation);
+  assert.equal(newYear.accounts.recruitment,0);
+  assert.equal(getSeasonRenewalCost(newYear),getSeasonRenewalCost(ended));
   assert.deepEqual(newYear.members.map(m=>m.id),ended.members.map(m=>m.id));
   assert.deepEqual(newYear.candidates.map(m=>m.id),ended.candidates.map(m=>m.id));
   ended.members.forEach((m,i)=>{
@@ -235,7 +237,7 @@ test('first round does not eliminate; scores stay sealed until final or explicit
 });
 
 test('previous Liguilla participants confirm direct entry next year without a fake admission score or effort',()=>{
-  let s=nextSeason(win());assert.equal(s.admissionExempt,true);
+  let s=renewAllWilling(nextSeason(win()));assert.equal(s.admissionExempt,true);
   for(const role of CREATIVE_ROLES) s=hireCreative(s,CREATIVE_CANDIDATES.find(c=>c.role===role&&c.level==='Barrial')!.id);
   s=startSeason(s);
   while(s.day<EVENTS[0].day) s=performAction(resolveFreeDecision(s),'rest');
@@ -276,7 +278,7 @@ test('role practice, voice arrangement and energy influence artistic evaluation;
 test('v3 migration preserves identities, ability, saved performances and jury ballots, with one explicit financing adjustment',()=>{
   for(const active of [false,true]){
     const v3=legacyV3(0,active),migrated=parseSave(JSON.stringify(v3))!;
-    assert.ok(migrated);assert.equal(migrated.version,7);assert.equal(migrated.money,230000+880000);
+    assert.ok(migrated);assert.equal(migrated.version,8);assert.equal(migrated.money,230000+880000);
     assert.equal(migrated.day,active?15:0);assert.equal(migrated.candidates.length,120);
     assert.deepEqual(migrated.members.map(m=>[m.id,m.voice,m.skill,m.assignedCord]),(v3.members as Member[]).map(m=>[m.id,m.voice,m.skill,m.assignedCord]));
     assert.match(migrated.log[0],/880.000/);save(migrated);
@@ -445,7 +447,7 @@ test('v4 migration retains all old fields, activates only the current decision a
   for(const day of [0,7,8,13]){
     const v4=toV4({...started(),day});
     const migrated=parseSave(JSON.stringify(v4))!;
-    assert.ok(migrated);assert.equal(migrated.version,7);assert.deepEqual(toV4(migrated),v4);
+    assert.ok(migrated);assert.equal(migrated.version,8);assert.deepEqual(toV4(migrated),v4);
     assert.equal(migrated.accounts.communityIncome,0);assert.equal(migrated.accounts.communityCosts,0);
     assert.equal(migrated.contactsToday,0);assert.equal(migrated.fundraisersUsed,0);
     assert.ok(migrated.members.every(member=>member.morale===70&&member.lastContactDay===-1));
@@ -484,11 +486,20 @@ test('v5 validation rejects forged contact counters, missing decisions, repeated
 
 
 function asV5(state:State):Record<string,unknown> {
-  const {identity,history,career,show,...previous}=state;
+  const {identity,history,career,show,pendingRenewals,...previous}=state;
   return {...previous,version:5};
 }
 function failAdmission(state:State,develop=false):State {
-  let s=state;
+  let s=renewAllWilling(state);
+  for(const id of [...s.pendingRenewals]) {
+    if(getRenewalQuote(s,id,'premium').accepted) {s=renewMember(s,id,'premium');continue;}
+    const role=s.members.find(member=>member.id===id)!.role;
+    const replacement=s.candidates.filter(member=>member.role===role&&getRecruitmentQuote(s,member.id,'premium').accepted)
+      .sort((a,b)=>a.cost-b.cost)[0];
+    assert.ok(replacement,'a willing affordable market replacement remains available');
+    s=recruit(s,replacement.id,id,'premium');
+  }
+  assert.equal(s.pendingRenewals.length,0);
   for(const role of CREATIVE_ROLES) s=hireCreative(s,CREATIVE_CANDIDATES.find(candidate=>candidate.role===role&&candidate.level==='Barrial')!.id);
   s=startSeason(s);
   if(develop) s=developShow(s,'saludo','text');
@@ -561,10 +572,11 @@ test('archiving an eliminated year publishes its results only after a successful
   assert.equal(archive.roundsCompleted,2);assert.equal(archive.contestTotal,getContestSummary(ended).contestTotal);
   assert.equal(next.career.finals,0);assert.equal(next.career.championships,0);save(next);
   const broke=cash({...ended,members:ended.members.map(member=>({...member,cost:5000000}))},0);
-  const rejected=nextSeason(broke);
-  assert.equal(rejected.season,broke.season);assert.equal(rejected.money,broke.money);
-  assert.deepEqual(rejected.history,broke.history);assert.deepEqual(rejected.career,broke.career);
-  assert.deepEqual(rejected.members,broke.members);assert.equal(getSeasonReport(rejected).contestTotal,null);
+  const funded=nextSeason(broke);
+  assert.equal(funded.season,broke.season+1);assert.equal(funded.money,SEASON_FINANCING);
+  assert.equal(funded.accounts.recruitment,0);assert.equal(funded.pendingRenewals.length,17);
+  assert.equal(funded.history.length,1);assert.equal(funded.history[0].closingCash,0);
+  assert.equal(funded.history[0].contestTotal,getContestSummary(broke).contestTotal);save(funded);
 });
 
 test('public getters and subsequent states cannot mutate archived identities, financial accounts or roster snapshots',()=>{
@@ -596,7 +608,7 @@ test('roster comparisons use only public experience and fame for matching IDs fr
 });
 
 test('admission exemptions are null in both public reports and archives and never count toward contest points',()=>{
-  let s=nextSeason(win());
+  let s=renewAllWilling(nextSeason(win()));
   for(const role of CREATIVE_ROLES) s=hireCreative(s,CREATIVE_CANDIDATES.find(candidate=>candidate.role===role&&candidate.level==='Barrial')!.id);
   s=startSeason(s);
   while(s.day<EVENTS[0].day) s=performAction(resolveFreeDecision(s),'rest');
@@ -620,7 +632,7 @@ test('admission exemptions are null in both public reports and archives and neve
 test('v5 migration preserves every old field and begins counters at the current year without inventing archives',()=>{
   const old={...started(),season:17};
   const v5=asV5(old),migrated=parseSave(JSON.stringify(v5))!;
-  assert.ok(migrated);assert.equal(migrated.version,7);assert.deepEqual(asV5(migrated),v5);
+  assert.ok(migrated);assert.equal(migrated.version,8);assert.deepEqual(asV5(migrated),v5);
   assert.deepEqual(migrated.identity,{name:'La Vereda',barrio:'Montevideo'});
   assert.deepEqual(migrated.history,[]);assert.deepEqual(migrated.career,{sinceSeason:17,completedSeasons:0,championships:0,finals:0});
   assert.ok(getRosterProgress(migrated).every(row=>row.experienceDelta===null));
@@ -674,7 +686,7 @@ test('archive validation rejects hidden member fields, inconsistent financial to
 });
 
 function asV6(state:State):Record<string,unknown> {
-  const {show,...previous}=state;
+  const {show,pendingRenewals,...previous}=state;
   return {...previous,version:6,history:state.history.map(entry=>{const {show,...archive}=entry;return archive;})};
 }
 function prepareSections(state:State,passes=1):State {
@@ -805,7 +817,7 @@ test('v6 migration preserves a real archived year, the current career and sealed
   const second=nextSeason(setIdentity(win(),{name:'Los del Andén',barrio:'Peñarol'}));
   const old=asV6(setIdentity(second,{name:'Los del Andén Renovada',barrio:'Peñarol'}));
   const migrated=parseSave(JSON.stringify(old));assert.ok(migrated);
-  assert.equal(migrated.version,7);assert.equal(migrated.season,2);assert.equal(migrated.history.length,1);
+  assert.equal(migrated.version,8);assert.equal(migrated.season,2);assert.equal(migrated.history.length,1);
   assert.deepEqual(asV6(migrated),old);assert.equal(migrated.history[0].show,null);
   assert.equal(migrated.show.locked,false);assert.equal(getShowSummary(migrated).readiness,0);save(migrated);
   assert.equal(migrated.history[0].identity.name,'Los del Andén');assert.equal(migrated.identity.name,'Los del Andén Renovada');
@@ -855,4 +867,214 @@ test('v7 validation rejects invalid plans, impossible progress, unfunded work an
     {...next,history:[{...entry,show:{...entry.show,sections:entry.show!.sections.map((section,index)=>index?section:{...section,id:'retirada'})}}]},
   ];
   for(const value of corrupt)assert.equal(parseSave(JSON.stringify(value)),null);
+});
+
+function asV7(state:State):Record<string,unknown> {
+  const {pendingRenewals,...previous}=state;
+  return {...previous,version:7};
+}
+
+test('annual closure funds the new year without paying or renewing contracts and preserves the completed archive before growth',()=>{
+  const ended=win(),original=JSON.stringify(ended),next=nextSeason(ended);
+  assert.equal(next.version,8);assert.equal(next.accounts.recruitment,0);assert.equal(next.money,ended.money+SEASON_FINANCING);
+  assert.deepEqual(next.pendingRenewals,ended.members.map(member=>member.id));
+  assert.deepEqual(getRenewalSummary(next),{pending:17,signed:0,total:17,estimatedCost:getSeasonRenewalCost(ended)});
+  assert.equal(next.history[0].cash,ended.money);assert.deepEqual(next.history[0].accounts,ended.accounts);
+  ended.members.forEach((member,index)=>{
+    assert.equal(next.history[0].roster[index].experience,member.experience);
+    assert.equal(next.history[0].roster[index].fame,member.fame);
+    assert.equal(next.members[index].age,member.age+1);assert.equal(next.members[index].seasons,member.seasons+1);
+    assert.equal(next.members[index].minReputation,Math.max(0,Math.round(next.members[index].fame*.65-8)));
+  });
+  assert.equal(JSON.stringify(ended),original);save(next);
+  const rejected=nextSeason(next);assert.equal(rejected.money,next.money);assert.deepEqual(rejected.members,next.members);
+  assert.deepEqual(rejected.history,next.history);assert.deepEqual(rejected.pendingRenewals,next.pendingRenewals);
+  const fork=setIdentity(next,{name:'Nueva Ronda',barrio:'Cerrito'});fork.pendingRenewals.pop();assert.equal(next.pendingRenewals.length,17);
+});
+
+test('renewal offers use public reputation, loyalty, rapport and morale, never hidden talent',()=>{
+  const state=nextSeason(win());state.reputation=35;
+  const member=state.members[0];Object.assign(member,{minReputation:40,fame:77,loyalty:50,rapport:0,morale:70,cost:41000});
+  assert.equal(getRenewalQuote(state,member.id).accepted,false);
+  assert.equal(getRenewalQuote(state,member.id,'generous').accepted,true);
+  assert.equal(getRenewalQuote(state,member.id,'premium').accepted,true);
+  assert.equal(getRenewalQuote(state,member.id).fee,6200);
+  assert.equal(getRenewalQuote(state,member.id,'generous').fee,7400);
+  assert.equal(getRenewalQuote(state,member.id,'premium').fee,9000);
+  const changedTalent=structuredClone(state);Object.assign(changedTalent.members[0],{voice:99,charisma:99,experience:100});
+  assert.deepEqual(getRenewalQuote(changedTalent,member.id),getRenewalQuote(state,member.id));
+  const loyal=structuredClone(state);loyal.reputation=38;loyal.members[0].loyalty=70;
+  assert.equal(getRenewalQuote(loyal,member.id).accepted,true);
+  loyal.members[0].morale=30;assert.equal(getRenewalQuote(loyal,member.id).accepted,false);
+  const open=structuredClone(state);open.reputation=41;
+  assert.equal(getRenewalQuote(open,member.id).accepted,false);
+  const contacted=contactMember(open,member.id);
+  assert.equal(contacted.day,0);assert.equal(contacted.money,open.money);assert.equal(contacted.members[0].rapport,15);
+  assert.equal(getRenewalQuote(contacted,member.id).accepted,true);assert.equal(getContactAvailability(contacted,member.id).enabled,false);save(contacted);
+  const star=structuredClone(state);star.reputation=0;Object.assign(star.members[0],{minReputation:57,loyalty:20,rapport:100,morale:30});
+  assert.equal(getRenewalQuote(star,member.id,'premium').accepted,false);
+});
+
+test('a recruited artist can refuse next year after the murga loses reputation even when offered more money',()=>{
+  let s=createGame();
+  const newcomer=s.candidates.find(member=>member.role==='chorister'&&member.minReputation>=28&&member.loyalty<=40&&getRecruitmentQuote(s,member.id,'premium').accepted)!;
+  assert.ok(newcomer);s=recruit(s,newcomer.id,undefined,'premium');
+  assert.ok(s.members.some(member=>member.id===newcomer.id));assert.deepEqual(s.pendingRenewals,[]);
+  const ended=failAdmission(s),next=nextSeason(ended);
+  assert.equal(ended.status,'lost');assert.ok(next.reputation<s.reputation);
+  assert.ok(next.pendingRenewals.includes(newcomer.id));assert.equal(getRenewalQuote(next,newcomer.id,'premium').accepted,false);save(next);
+});
+
+test('individual signatures charge once, survive reload and never advance time or grant artist growth',()=>{
+  const state=nextSeason(win()),before=JSON.stringify(state),id=state.members[0].id;
+  const quote=getRenewalQuote(state,id,'generous');assert.equal(quote.accepted,true);
+  const renewed=renewMember(state,id,'generous');
+  assert.equal(renewed.money,state.money-quote.fee);assert.equal(renewed.accounts.recruitment,quote.fee);
+  assert.equal(renewed.day,0);assert.equal(renewed.seed,state.seed);assert.deepEqual(renewed.members,state.members);
+  assert.equal(renewed.pendingRenewals.length,16);assert.ok(!renewed.pendingRenewals.includes(id));assert.equal(JSON.stringify(state),before);
+  assert.equal(getRenewalSummary(renewed).signed,1);assert.equal(getSeasonRenewalCost(renewed),getSeasonRenewalCost(state)-getRenewalQuote(state,id).fee);
+  const loaded=parseSave(JSON.stringify(renewed))!;assert.ok(loaded);
+  const repeated=renewMember(loaded,id,'premium');assert.equal(repeated.money,renewed.money);assert.deepEqual(repeated.accounts,renewed.accounts);
+  for(const [badId,offer] of [[id,'invalid'],['unknown','standard'],[state.candidates[0].id,'standard'],[id,'__proto__']]){
+    const rejected=renewMember(state,badId,offer as 'standard');assert.equal(rejected.money,state.money);assert.deepEqual(rejected.pendingRenewals,state.pendingRenewals);
+  }
+  const broke=cash(state,0),refused=renewMember(broke,id);assert.equal(refused.money,0);assert.deepEqual(refused.pendingRenewals,state.pendingRenewals);
+  assert.equal(getRenewalQuote(createGame(),createGame().members[0].id).accepted,false);
+});
+
+test('pending contracts block every advancing action and production while contacts, auditions, technicians and replacements remain available',()=>{
+  let state=nextSeason(win());
+  for(const action of ['rehearse','rest','compete','popular','commercial','fundraiser','community','invalid'] as Action[]){
+    const denied=performAction(state,action);assert.equal(denied.day,0);assert.equal(denied.money,state.money);assert.deepEqual(denied.members,state.members);
+    assert.equal(getActionAvailability(state,action).enabled,false);
+  }
+  for(const work of ['text','arrangements'] as const){
+    const denied=developShow(state,'saludo',work);assert.equal(denied.day,0);assert.equal(denied.money,state.money);assert.deepEqual(denied.show,state.show);
+  }
+  for(const role of CREATIVE_ROLES)state=hireCreative(state,CREATIVE_CANDIDATES.find(candidate=>candidate.role===role&&candidate.level==='Barrial')!.id);
+  assert.equal(getProductionSummary(state).ready,true);assert.equal(startSeason(state).productionStarted,false);
+  const unknown=state.candidates.find(member=>member.scouting===0)!;
+  const scouted=scoutMember(state,unknown.id);assert.equal(scouted.candidates.find(member=>member.id===unknown.id)!.scouting,1);assert.equal(scouted.day,0);save(scouted);
+  for(const id of state.pendingRenewals.slice(0,3))state=contactMember(state,id);
+  assert.equal(state.contactsToday,3);assert.equal(getContactAvailability(state,state.pendingRenewals[3]).enabled,false);
+  assert.equal(getContactAvailability(state,state.candidates[0].id).enabled,false);save(state);
+  const signed=renewAllWilling(state);assert.equal(signed.pendingRenewals.length,0);
+  const active=startSeason(signed);assert.equal(active.productionStarted,true);assert.equal(performAction(active,'rest').day,1);save(active);
+});
+
+test('replacing a pending member signs the incoming contract once, keeps17 roles and removes only the outgoing pending ID',()=>{
+  const state=nextSeason(win()),target=state.members.find(member=>member.role==='bombo')!;
+  const incoming=state.candidates.find(member=>member.role===target.role&&getRecruitmentQuote(state,member.id).accepted)!;
+  const fee=getRecruitmentQuote(state,incoming.id).fee,next=recruit(state,incoming.id,target.id);
+  assert.equal(next.members.length,17);assert.equal(next.members.filter(member=>member.role==='bombo').length,1);
+  assert.ok(next.members.some(member=>member.id===incoming.id));assert.ok(next.candidates.some(member=>member.id===target.id));
+  assert.equal(next.pendingRenewals.length,16);assert.ok(!next.pendingRenewals.includes(target.id));assert.ok(!next.pendingRenewals.includes(incoming.id));
+  assert.equal(next.money,state.money-fee);assert.equal(next.accounts.recruitment,fee);
+  assert.equal(renewMember(next,incoming.id).money,next.money);save(next);
+  const wrong=recruit(state,incoming.id,state.members.find(member=>member.role!=='bombo')!.id);
+  assert.equal(wrong.money,state.money);assert.deepEqual(wrong.pendingRenewals,state.pendingRenewals);
+});
+
+test('bulk renewal recomputes available funds after each signature, skips refusals and costly deals, and is deterministic',()=>{
+  const state=nextSeason(win());state.reputation=70;
+  state.members.forEach(member=>Object.assign(member,{cost:20000,minReputation:0,loyalty:70,rapport:0,morale:70}));
+  state.members[1].cost=1000000;
+  Object.assign(state.members[2],{minReputation:100,loyalty:0,morale:0});
+  const limited=cash(state,getContractReserve(state).cost+5000),bulk=renewAllWilling(limited);
+  assert.equal(bulk.money,limited.money-45000);assert.equal(bulk.accounts.recruitment,45000);assert.equal(bulk.pendingRenewals.length,2);
+  assert.ok(!bulk.pendingRenewals.includes(state.members[0].id));assert.ok(!bulk.pendingRenewals.includes(state.members[3].id));
+  assert.ok(bulk.pendingRenewals.includes(state.members[1].id));assert.ok(bulk.pendingRenewals.includes(state.members[2].id));
+  assert.equal(bulk.day,0);assert.deepEqual(bulk.members,limited.members);assert.deepEqual(renewAllWilling(limited),bulk);save(bulk);
+  const repeated=renewAllWilling(bulk);assert.equal(repeated.money,bulk.money);assert.deepEqual(repeated.accounts,bulk.accounts);assert.deepEqual(repeated.pendingRenewals,bulk.pendingRenewals);
+});
+
+test('v7 migration keeps already paid contracts, progress, archives and cash intact in setup, active and completed campaigns',()=>{
+  const renewed=renewAllWilling(nextSeason(win()));
+  for(const current of [createGame(),renewed,performAction(fixture(EVENTS[1].day),'compete'),win()]){
+    const old=asV7(current),loaded=parseSave(JSON.stringify(old));assert.ok(loaded);
+    assert.equal(loaded.version,8);assert.deepEqual(loaded.pendingRenewals,[]);assert.deepEqual(asV7(loaded),old);
+    assert.equal(getRenewalSummary(loaded).signed,17);assert.equal(getRenewalSummary(loaded).pending,0);
+    assert.equal(renewAllWilling(loaded).money,loaded.money);assert.equal(renewMember(loaded,loaded.members[0].id).money,loaded.money);save(loaded);
+  }
+});
+
+test('v8 pending IDs are unique current members only and cannot survive beyond initial preproduction',()=>{
+  const state=nextSeason(win()),id=state.members[0].id;
+  const corrupt:unknown[]=[
+    {...state,pendingRenewals:undefined},{...state,pendingRenewals:null},{...state,pendingRenewals:{}},
+    {...state,pendingRenewals:[id,id]},{...state,pendingRenewals:[17]},{...state,pendingRenewals:['unknown']},
+    {...state,pendingRenewals:[state.candidates[0].id]},{...state,productionStarted:true},{...state,day:1},
+    {...createGame(),pendingRenewals:[id]},{...win(),pendingRenewals:[id]},
+  ];
+  for(const value of corrupt)assert.equal(parseSave(JSON.stringify(value)),null);
+  const partial=renewMember(state,id);save(partial);assert.equal(parseSave(JSON.stringify(partial))!.pendingRenewals.length,16);
+  const signed=renewAllWilling(partial);save(signed);assert.equal(signed.pendingRenewals.length,0);
+});
+
+test('contract reserve ignores cash and artistic talent and its distinct market replacements form an executable route',()=>{
+  const state=nextSeason(win());state.reputation=0;
+  state.members.forEach(member=>Object.assign(member,{minReputation:100,loyalty:0,rapport:0,morale:0}));
+  state.candidates.forEach(member=>Object.assign(member,{minReputation:0,loyalty:50,rapport:0}));
+  const reserve=getContractReserve(state);assert.equal(reserve.possible,true);assert.equal(reserve.plan.length,17);
+  assert.ok(reserve.plan.every(step=>step.kind==='replacement'));
+  assert.equal(new Set(reserve.plan.map(step=>step.candidateId)).size,17,'no candidate may fill two positions');
+  assert.equal(reserve.cost,reserve.plan.reduce((sum,step)=>sum+step.fee,0));
+  assert.deepEqual(getContractReserve(cash(state,0)),reserve,'feasibility measures disposition, not cash');
+  const talented=structuredClone(state);[...talented.members,...talented.candidates].forEach(member=>{member.voice=100;member.skill=100;member.charisma=100;});
+  assert.deepEqual(getContractReserve(talented),reserve);
+  let funded=cash(state,reserve.cost),guard=0;
+  while(funded.pendingRenewals.length&&guard++<17){
+    const plan=getContractReserve(funded);assert.equal(plan.possible,true);assert.ok(funded.money>=plan.cost);
+    const step=plan.plan[0],next=step.kind==='renewal'?renewMember(funded,step.memberId,step.offer):recruit(funded,step.candidateId!,step.memberId,step.offer);
+    assert.equal(next.pendingRenewals.length,funded.pendingRenewals.length-1,next.lastMessage);
+    funded=next;save(funded);
+  }
+  assert.equal(funded.pendingRenewals.length,0);assert.equal(funded.members.length,17);assert.equal(funded.money,0);
+});
+
+test('reserved funds block optional spending and excessive offers while allowing the exact affordable contract plan',()=>{
+  const state=nextSeason(win()),reserve=getContractReserve(state);
+  assert.equal(reserve.possible,true);assert.ok(reserve.plan.every(step=>step.kind==='renewal'&&step.offer==='standard'));
+  const exact=cash(state,reserve.cost),id=exact.members[0].id;
+  const richer=cash(exact,1000000);
+  const candidate=exact.candidates.find(member=>member.role==='chorister'&&member.cost>getRenewalQuote(exact,id).fee&&member.cost<exact.money&&getRecruitmentQuote(richer,member.id).accepted)!;
+  assert.ok(candidate);
+  const quote=getRecruitmentQuote(exact,candidate.id,'standard',id);assert.equal(quote.accepted,false);assert.match(quote.reason,/reservar/);
+  assert.equal(recruit(exact,candidate.id,id).money,exact.money);
+  const audition=scoutMember(exact,exact.candidates.find(member=>member.scouting===0)!.id);
+  assert.equal(audition.money,exact.money);assert.match(audition.lastMessage,/reservar/);
+  const technical=hireCreative(exact,CREATIVE_CANDIDATES[0].id);assert.equal(technical.money,exact.money);assert.match(technical.lastMessage,/reservar/);
+  const premium=getRenewalQuote(exact,id,'premium');assert.equal(premium.accepted,false);assert.match(premium.reason,/reservar/);
+  assert.equal(renewMember(exact,id,'premium').money,exact.money);
+  const bulk=renewAllWilling(exact);assert.equal(bulk.pendingRenewals.length,0);assert.equal(bulk.money,0);save(bulk);
+  const poor=cash(state,0),declined=renewAllWilling(poor);assert.equal(declined.money,0);assert.deepEqual(declined.pendingRenewals,poor.pendingRenewals);
+});
+
+test('explicit recruitment replacement controls the reserve and can resolve a pending slot without blocking an affordable alternative',()=>{
+  const state=nextSeason(win()),pending=state.members[0],signed=state.members[1];
+  state.pendingRenewals=[pending.id];
+  const incoming=state.candidates.find(member=>member.role===pending.role&&getRecruitmentQuote(state,member.id,'standard',pending.id).accepted)!;
+  const exact=cash(state,getRecruitmentQuote(state,incoming.id,'standard',pending.id).fee);
+  assert.equal(getRecruitmentQuote(exact,incoming.id,'standard',pending.id).accepted,true);
+  const rejected=getRecruitmentQuote(exact,incoming.id,'standard',signed.id);
+  assert.equal(rejected.accepted,false);assert.match(rejected.reason,/reservar/);
+  assert.equal(recruit(exact,incoming.id,signed.id).money,exact.money);
+  const completed=recruit(exact,incoming.id,pending.id);assert.deepEqual(completed.pendingRenewals,[]);assert.equal(completed.money,0);save(completed);
+});
+
+test('technical and costume refunds remain available under the reserve while new net expenses cannot consume it',()=>{
+  let state=nextSeason(win());
+  const pricey=CREATIVE_CANDIDATES.find(candidate=>candidate.role==='lyrics'&&candidate.level==='Referente')!;
+  const cheap=CREATIVE_CANDIDATES.find(candidate=>candidate.role==='lyrics'&&candidate.level==='Barrial')!;
+  state=hireCreative(state,pricey.id);
+  const poor=cash(state,0),refunded=hireCreative(poor,cheap.id);
+  assert.equal(refunded.money,pricey.fee-cheap.fee);assert.equal(refunded.creativeTeam.lyrics,cheap.id);save(refunded);
+  state=hireCreative(state,CREATIVE_CANDIDATES.find(candidate=>candidate.role==='costumes'&&candidate.level==='Barrial')!.id);
+  state=chooseCostumeProposal(state,getCostumeProposals(state)[1].id);
+  assert.ok(state.costumeProposalId?.endsWith('-p1'));
+  const costumePoor=cash(state,0),cheaper=chooseCostumeProposal(costumePoor,getCostumeProposals(costumePoor)[0].id);
+  assert.equal(cheaper.money,150000);save(cheaper);
+  const insufficient=cash(cheaper,getContractReserve(cheaper).cost+100000);
+  const blocked=chooseCostumeProposal(insufficient,getCostumeProposals(insufficient)[1].id);
+  assert.equal(blocked.money,insufficient.money);assert.equal(blocked.costumeProposalId,insufficient.costumeProposalId);assert.match(blocked.lastMessage,/reservar/);
 });

@@ -16,9 +16,11 @@ import { recruitmentPanel, costumePanel, researchPanel, fameLabel, type MarketFi
 import { communityPanel, decisionPanel } from './community-panel';
 import { careerPanel, identityPanel } from './career-panel';
 import { showPanel, showBrief } from './show-panel';
+import { contractPanel, contractBrief } from './contracts-panel';
+import { contactMember, getRenewalSummary, renewMember, renewAllWilling, type RecruitmentOffer } from './simulation';
 import { configureShow, developShow, getShowSummary, setRehearsalFocus, validateShowPlan, type ShowSectionId, type ShowWork, type RehearsalFocus } from './simulation';
 import { setIdentity, validateIdentity } from './simulation';
-import { contactCandidate, resolveDecision, getPendingDecision, getCommunitySummary } from './simulation';
+import { resolveDecision, getPendingDecision, getCommunitySummary } from './simulation';
 import { scoutMember, nextSeason, getSeasonRenewalCost, getMemberReport, getRecruitmentAvailability, getCostumeProposals, chooseCostumeProposal, TOTAL_DAYS, REHEARSALS_START_DAY } from './simulation';
 import { createGame, performAction, recruit, assignCord, buyUpgrade, buyLicense, getStats, getCalendar, getActionPreview, getActionAvailability, getContestSummary, getStandings, getUpgradeCost, parseSave, refreshCandidates, hireCreative, startSeason, revealEliminatedFallos, getProductionSummary, CREATIVE_ROLES, CREATIVE_ROLE_LABELS, CREATIVE_CANDIDATES, MEMBER_ROLE_LABELS, CORDS, EVENTS, MAX_UPGRADE, type State, type Action, type Upgrade, type CreativeRole, type Member } from './simulation';
 
@@ -52,9 +54,9 @@ const icon = (name: string) => `<svg class="icon" viewBox="0 0 24 24" fill="none
 const money = (n: number) => '$ ' + Math.round(n).toLocaleString('es-UY');
 const escape = (s: string) => s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 const signed = (n:number, suffix='') => `${n > 0 ? '+' : ''}${Math.round(n)}${suffix}`;
-const KEY = 'director-de-murga-v7';
+const KEY = 'director-de-murga-v8';
 const WARDROBE_KEY = 'director-de-murga-character-system-v1';
-const LEGACY_KEYS = ['director-de-murga-v6', 'director-de-murga-v5', 'director-de-murga-v4', 'director-de-murga-v3', 'director-de-murga-v2', 'director-de-murga-v1'];
+const LEGACY_KEYS = ['director-de-murga-v7', 'director-de-murga-v6', 'director-de-murga-v5', 'director-de-murga-v4', 'director-de-murga-v3', 'director-de-murga-v2', 'director-de-murga-v1'];
 const CREATIVE_DETAILS: Record<CreativeRole, {icon: string; brief: string; effect: string}> = {
   lyrics: {icon: 'book', brief: 'Encontrá la voz de tu espectáculo: humor, crítica y una historia para cantar.', effect: 'Aporta calidad a los textos.'},
   arrangements: {icon: 'music', brief: 'Transformá las melodías en un coro que emocione y se entienda con la batería.', effect: 'Mejora voces y arreglos, y la coordinación musical.'},
@@ -108,6 +110,7 @@ async function boot() {
   state.members.forEach((member,index) => { cosmetics.members[member.id] ??= memberAppearance(cosmetics,member.id,index); });
   let page = 'sede', replacement = state.members[0].id, modelReady = false, panelNotice = '';
   const market: MarketFilters = { query: '', fame: 'all', sort: 'cost', page: 0, offer: 'standard' };
+  let renewalOffers: Record<string, RecruitmentOffer> = {};
   const talentLabel = (member: Member) => getMemberReport(state, member).label;
   let creativeRole: CreativeRole = CREATIVE_ROLES.find(role => !state.creativeTeam[role]) ?? 'lyrics';
   let theatrePreview = false;
@@ -181,7 +184,18 @@ async function boot() {
     const value = JSON.stringify(state);
     saveQueue = saveQueue.then(async () => { await Preferences.set({ key: KEY, value }); if (saveWarning) { saveWarning = ''; render(); } }).catch(() => { saveWarning = 'No pudimos guardar. Mantené la app abierta para conservar esta partida.'; render(); toast(saveWarning); });
   }
-  function commit(next: State) { const focusedMember = (document.activeElement as HTMLElement)?.dataset.member; state = next; save(); render(); toast(state.lastMessage); if (dialog.open) { panelNotice=state.lastMessage; renderPanel(); } if (focusedMember) document.querySelector<HTMLSelectElement>(`select[data-member="${CSS.escape(focusedMember)}"]`)?.focus(); }
+  function commit(next: State) {
+    const active=document.activeElement as HTMLElement | null;
+    const focusedMember=active?.dataset.member;
+    const contractId=page==='contratos' ? active?.dataset.renew ?? active?.dataset.contact : undefined;
+    state=next; save(); render(); toast(state.lastMessage);
+    if(dialog.open) { panelNotice=state.lastMessage; renderPanel(); }
+    if(focusedMember) document.querySelector<HTMLSelectElement>(`select[data-member="${CSS.escape(focusedMember)}"]`)?.focus({preventScroll:true});
+    if(contractId) {
+      const followup=dialog.querySelector<HTMLButtonElement>(`[data-renew="${CSS.escape(contractId)}"]:not(:disabled)`) ?? dialog.querySelector<HTMLButtonElement>('[data-renew]:not(:disabled)') ?? dialog.querySelector<HTMLButtonElement>('[data-close]');
+      followup?.focus({preventScroll:true});
+    }
+  }
   function actionButton(action: Action, title: string, detail: string, glyph: string, style='') {
     const preview = getActionPreview(state, action), availability = getActionAvailability(state, action);
     const price=!availability.enabled?'No disponible':action==='compete'?(state.day===EVENTS[0].day?(state.admissionExempt?'Inscripción':'Admisión'):'Concurso'):preview.money?`${preview.money>0?'+':'−'} ${money(Math.abs(preview.money))}`:'Sin costo';
@@ -203,7 +217,7 @@ async function boot() {
       <div class="production-list">${production.team.map(({role, label, candidate}) => `<button class="production-slot ${candidate ? 'filled' : ''}" data-choose-role="${role}"><span class="slot-icon">${icon(CREATIVE_DETAILS[role].icon)}</span><span class="slot-copy"><strong>${label}</strong><small>${candidate ? `${escape(candidate.name)} · ${money(candidate.fee)}` : 'Compará 3 perfiles y elegí'}</small></span><span class="slot-state">${icon(candidate ? 'check' : 'arrow')}</span></button>`).join('')}</div>
       <button class="outline-button team-summary" data-open="fichajes">${icon('people')} Buscar integrantes · ${state.candidates.length} perfiles ${icon('arrow')}</button><button class="outline-button team-summary" data-open="vestuario">${icon('shirt')} Propuestas de vestuario ${icon('arrow')}</button>
       ${productionBudget()}
-      ${production.ready ? `<button class="primary-button production-start" data-start-production>Iniciar la campaña ${icon('arrow')}</button>` : `<button class="primary-button production-start" data-open="produccion">${icon('people')} Elegir equipo creativo ${icon('arrow')}</button>`}
+      ${state.pendingRenewals.length ? `<button class="primary-button production-start" data-open="contratos">Acordar las ${state.pendingRenewals.length} plazas pendientes ${icon('arrow')}</button>` : production.ready ? `<button class="primary-button production-start" data-start-production>Iniciar la campaña ${icon('arrow')}</button>` : `<button class="primary-button production-start" data-open="produccion">${icon('people')} Elegir equipo creativo ${icon('arrow')}</button>`}
       <p class="fineprint">El equipo creativo trabaja fuera de las 17 plazas del elenco. Contratar no consume jornadas. Reservá caja para preparar el espectáculo.</p>
       <div class="desk-foot"><span class="tiny-dot"></span> ${saveWarning ? 'Guardado no disponible' : 'Elecciones guardadas'}<button class="text-button" data-open="help">Cómo se juega ${icon('arrow')}</button></div>`;
   }
@@ -223,7 +237,7 @@ async function boot() {
       ${creativeRole === 'costumes' ? '<button class="outline-button team-summary" data-open="vestuario">Ver las propuestas de tu vestuarista</button>' : ''}
       <div class="production-footer">${productionBudget()}<p class="fineprint">Podés cambiar tus elecciones antes de empezar: recuperás el honorario anterior. Los importes y perfiles son ficticios. Un equipo más caro deja menos caja para ensayos y mejoras.</p>
       ${!production.ready ? `<button class="outline-button" data-creative-role="${remainingRole ?? CREATIVE_ROLES[(currentIndex+1)%5]}">${production.hired}/5 contratados · ${selected ? 'Elegir el siguiente oficio' : 'Quedan oficios por cubrir'} ${icon('arrow')}</button>` : ''}
-      <button class="primary-button production-start" data-start-production ${production.ready ? '' : 'disabled'}>${production.ready ? 'Empezar la preparación' : 'Completá los 5 oficios para empezar'} ${icon('arrow')}</button></div>`;
+      ${state.pendingRenewals.length ? contractBrief(state) : ''}<button class="primary-button production-start" data-start-production ${production.ready && !state.pendingRenewals.length ? '' : 'disabled'}>${state.pendingRenewals.length ? 'Falta acordar el elenco' : production.ready ? 'Empezar la preparación' : 'Completá los 5 oficios para empezar'} ${icon('arrow')}</button></div>`;
   }
   function render() {
     const stats = getStats(state), calendar = getCalendar(state), next = EVENTS.find(e => e.day >= state.day), ended = state.status !== 'playing';
@@ -250,7 +264,7 @@ async function boot() {
       ${!calendar.tabladosOpen?`<p class="calendar-note">${icon('calendar')}<span><strong>Todavía no hay tablados</strong>El circuito abre a fines de enero. Las funciones previas son eventos puntuales; la admisión no es un tablado.</span></p>`:''}
       ${ended?`<button class="primary-button replay" data-open="resultado">${icon('trophy')} Ver resultado de temporada ${icon('arrow')}</button>`:''}
       <button class="team-summary outline-button" data-open="produccion">${icon('people')} Tu equipo creativo · 5 oficios ${icon('arrow')}</button><button class="license ${state.licensed?'paid':''}" data-license ${state.licensed||ended?'disabled':''}>${icon(state.licensed?'check':'book')}<span>${state.licensed?'Declaración de repertorio preparada':'Preparar declaración de repertorio'}</span>${state.licensed?'':icon('arrow')}</button><div class="desk-foot"><span class="tiny-dot"></span> ${saveWarning?'Guardado no disponible':'Guardado automático'}<button class="text-button" data-open="help">Guía del director ${icon('arrow')}</button></div>`;
-    document.querySelector('#desk .date-row, #desk .production-intro')?.insertAdjacentHTML('afterend',communityDesk());
+    document.querySelector('#desk .date-row, #desk .production-intro')?.insertAdjacentHTML('afterend',contractBrief(state)+communityDesk());
     document.querySelector('#desk .community-desk-link')?.insertAdjacentHTML('afterend',showBrief(state));
     scene?.setCosmetics(stageCosmetics());
     scene?.update(state, theatrePreview);
@@ -292,13 +306,15 @@ async function boot() {
       <button class="outline-button team-summary" data-open="trayectoria">${icon('book')} Historia de la murga ${icon('arrow')}</button><button class="outline-button" data-open="reset">${icon('refresh')} Nueva temporada</button>`;
   }
   function renderPanel() {
-    const titles:Record<string,[string,string]>={espectaculo:['LETRA, MÚSICA Y ENSAYO','Nuestro espectáculo'],trayectoria:['DE CARNAVAL EN CARNAVAL','Historia de la murga'],identidad:['EL NOMBRE QUE VAMOS A CANTAR','Nuestra identidad'],comunidad:['SE HACE ENTRE TODOS','La vida de la murga'],decision:['LA LIBRETA DEL DIRECTOR','Una decisión del año'],produccion:['DE LA IDEA AL ESCENARIO','Tu equipo creativo'],plantel:['13 VOCES · 3 INSTRUMENTOS · 1 DIRECCIÓN','El plantel'],fichajes:['NOMBRES, HISTORIAS Y CONVERSACIONES','Mercado de integrantes'],vestuario:['DISEÑO Y CONFECCIÓN','El vestuario'],economia:['FUENTES Y PRESUPUESTOS','El costo del carnaval'],taller:['EL OFICIO DE EMOCIONAR','El taller'],agenda:['DE ABRIL A MARZO','La temporada'],help:['TU PRIMER CARNAVAL','Guía del director'],resultado:['BAJÓ EL TELÓN','Resultado de temporada'],reset:['LA MURGA SIGUE','La próxima temporada']};
+    const titles:Record<string,[string,string]>={contratos:['CADA AÑO, UN NUEVO ACUERDO','Los acuerdos del elenco'],espectaculo:['LETRA, MÚSICA Y ENSAYO','Nuestro espectáculo'],trayectoria:['DE CARNAVAL EN CARNAVAL','Historia de la murga'],identidad:['EL NOMBRE QUE VAMOS A CANTAR','Nuestra identidad'],comunidad:['SE HACE ENTRE TODOS','La vida de la murga'],decision:['LA LIBRETA DEL DIRECTOR','Una decisión del año'],produccion:['DE LA IDEA AL ESCENARIO','Tu equipo creativo'],plantel:['13 VOCES · 3 INSTRUMENTOS · 1 DIRECCIÓN','El plantel'],fichajes:['NOMBRES, HISTORIAS Y CONVERSACIONES','Mercado de integrantes'],vestuario:['DISEÑO Y CONFECCIÓN','El vestuario'],economia:['FUENTES Y PRESUPUESTOS','El costo del carnaval'],taller:['EL OFICIO DE EMOCIONAR','El taller'],agenda:['DE ABRIL A MARZO','La temporada'],help:['TU PRIMER CARNAVAL','Guía del director'],resultado:['BAJÓ EL TELÓN','Resultado de temporada'],reset:['LA MURGA SIGUE','La próxima temporada']};
     const [kicker,title] = titles[page]??titles.help;
     document.querySelector('#panel-kicker')!.textContent=kicker; document.querySelector('#panel-title')!.textContent=title;
     dialog.classList.toggle('production-panel', page === 'produccion');
     let body = '';
     const locked = !state.productionStarted || state.status !== 'playing';
-    if(page==='espectaculo') {
+    if(page==='contratos') {
+      body=contractPanel(state,renewalOffers);
+    } else if(page==='espectaculo') {
       body=showPanel(state);
     } else if(page==='trayectoria') {
       body=careerPanel(state);
@@ -311,6 +327,7 @@ async function boot() {
     } else if(page==='produccion') {
       body = productionPanel();
     } else if(page==='plantel') {
+      const contracts=getRenewalSummary(state);
       const groups = [
         {title:'El coro', detail:'13 coreutas · afinidad y balance de cuerdas', members:state.members.filter(m=>m.role==='chorister'), role:'chorister'},
         {title:'La batería', detail:'Bombo, redoblante y platillos · técnica que se descubre ensayando', members:state.members.filter(m=>['bombo','redoblante','platillos'].includes(m.role)), role:'bombo'},
@@ -318,9 +335,9 @@ async function boot() {
       ];
       body=`<div class="panel-intro"><p><b>17 componentes, tres funciones.</b> Organizá las cuerdas del coro y cuidá la técnica de la batería y la conducción escénica.</p><button class="primary-button" data-open="fichajes" ${!getRecruitmentAvailability(state).enabled?'disabled':''}>${icon('people')} Buscar talentos</button></div>
         <div class="ensemble-summary"><span>${icon('voice')}<b>13</b> coreutas</span><span>${icon('drum')}<b>3</b> batería</span><span>${icon('wand')}<b>1</b> dirección</span></div>
-        <p class="calendar-note">Las negociaciones empiezan en abril. Conservás integrantes, experiencia y vínculos al pasar de año.</p>
+        <p class="calendar-note">Las negociaciones empiezan en abril. Las carreras y los vínculos continúan; cada año tenés que acordar quién vuelve.</p><button class="outline-button team-summary" data-open="contratos">${icon(contracts.pending ? 'book' : 'check')} Acuerdos del elenco · ${contracts.signed}/${contracts.total} confirmados ${icon('arrow')}</button>
         <div class="cord-summary">${CORDS.map(c=>`<span>${c}<b>${state.members.filter(m=>m.role==='chorister'&&m.assignedCord===c).length}</b></span>`).join('')}</div>
-        ${groups.map(group=>`<section class="member-section" data-role="${group.role}"><h3>${group.title}</h3><p>${group.detail}</p><div class="member-list">${group.members.map(m=>`<article class="member"><span class="portrait" data-role="${m.role}" aria-hidden="true">${icon(roleIcon(m))}</span><div class="member-name"><strong>${escape(m.nickname)}</strong><span>${escape(m.name)}</span><small>${m.role === 'chorister' ? `${m.cord} · ` : ''}${talentLabel(m)} · energía ${Math.round(m.energy)}</small><small>${fameLabel(m.fame)} · ${m.seasons} carnavales · ${Math.round(m.experience)} XP</small><small>Ánimo ${Math.round(m.morale)}/100 · ${m.loyalty>=70?'Vínculo fuerte':m.loyalty>=45?'Se siente parte':'Vínculo por cuidar'}</small></div>${m.role === 'chorister' ? `<label class="cord-select"><span class="sr-only">Cuerda de ${escape(m.name)}</span><select data-member="${m.id}" ${locked?'disabled':''}>${CORDS.map(c=>`<option ${c===m.assignedCord?'selected':''}>${c}</option>`).join('')}</select><small class="${m.cord===m.assignedCord?'gain':'expense'}">${m.cord===m.assignedCord?'En su cuerda':'Fuera de cuerda'}</small></label>` : `<span class="role-badge" data-role="${m.role}">${MEMBER_ROLE_LABELS[m.role]}</span>`}</article>`).join('')}</div></section>`).join('')}
+        ${groups.map(group=>`<section class="member-section" data-role="${group.role}"><h3>${group.title}</h3><p>${group.detail}</p><div class="member-list">${group.members.map(m=>`<article class="member"><span class="portrait" data-role="${m.role}" aria-hidden="true">${icon(roleIcon(m))}</span><div class="member-name"><strong>${escape(m.nickname)}</strong><span>${escape(m.name)}</span>${state.pendingRenewals.includes(m.id)?'<small class="expense">Pendiente de acuerdo · todavía no confirmado</small>':''}<small>${m.role === 'chorister' ? `${m.cord} · ` : ''}${talentLabel(m)} · energía ${Math.round(m.energy)}</small><small>${fameLabel(m.fame)} · ${m.seasons} carnavales · ${Math.round(m.experience)} XP</small><small>Ánimo ${Math.round(m.morale)}/100 · ${m.loyalty>=70?'Vínculo fuerte':m.loyalty>=45?'Se siente parte':'Vínculo por cuidar'}</small></div>${m.role === 'chorister' ? `<label class="cord-select"><span class="sr-only">Cuerda de ${escape(m.name)}</span><select data-member="${m.id}" ${locked?'disabled':''}>${CORDS.map(c=>`<option ${c===m.assignedCord?'selected':''}>${c}</option>`).join('')}</select><small class="${m.cord===m.assignedCord?'gain':'expense'}">${m.cord===m.assignedCord?'En su cuerda':'Fuera de cuerda'}</small></label>` : `<span class="role-badge" data-role="${m.role}">${MEMBER_ROLE_LABELS[m.role]}</span>`}</article>`).join('')}</div></section>`).join('')}
         <p class="fineprint">Plantilla elegida para el juego: 13 + 3 + 1. Las cuerdas solo corresponden al coro. La batería y la dirección tienen habilidad y cansancio propios.</p>`;
     } else if(page==='fichajes') {
       if(!state.members.some(m=>m.id===replacement)) replacement=state.members[0].id;
@@ -334,13 +351,13 @@ async function boot() {
     } else if(page==='agenda'||page==='resultado') {
       body=seasonPanel(page==='resultado');
     } else if(page==='reset') {
-      body=`<p class="intro-copy">${escape(state.identity.name)} vuelve en abril con su plantel, su reputación y las carreras que construiste. Las nuevas contrataciones y el equipo creativo se negocian para el año siguiente. La financiación de la nueva campaña y el saldo quedan registrados. Renovar este plantel costará ${money(getSeasonRenewalCost(state))}, descontados de la caja de la nueva temporada.</p>${state.status==='playing'?'<p class="calendar-note">Primero terminá la temporada actual. Los años de carrera no se ganan reiniciando una campaña.</p>':''}<div class="confirm-actions"><button class="outline-button" data-close>Volver</button><button class="primary-button" data-reset ${state.status==='playing'?'disabled':''}>Continuar a la temporada ${state.season+1}</button></div>`;
+      body=`<p class="intro-copy">${escape(state.identity.name)} vuelve en abril con su reputación y las carreras que construiste. El cierre de este año quedará archivado antes de recibir la financiación de la próxima campaña. Los 17 lugares quedan pendientes de acuerdo: cada integrante decide si acepta, y podés buscar un reemplazo. ${state.status==='playing'?'La referencia de renovación se calcula al cerrar el año, con las carreras actualizadas.':`La referencia estándar para renovar al plantel es ${money(getSeasonRenewalCost(state))}; las contraofertas pueden aumentarla.`} Solo se descuenta dinero al firmar cada acuerdo. Primero resolvés el elenco y después iniciás la preparación.</p>${state.status==='playing'?'<p class="calendar-note">Primero terminá la temporada actual. Los años de carrera no se ganan reiniciando una campaña.</p>':''}<div class="confirm-actions"><button class="outline-button" data-close>Volver</button><button class="primary-button" data-reset ${state.status==='playing'?'disabled':''}>Continuar a la temporada ${state.season+1}</button></div>`;
     } else {
       body=`<div class="guide-step"><b>01</b><div><h3>Primero, el equipo creativo</h3><p>Elegí letrista, arreglador/a coral, vestuarista, maquillador/a y puestista. Compará trayectoria y honorarios. Los diseños del vestuarista aparecen después de contratarlo: te presenta dos alternativas y elegís cuál confeccionar. Podés cambiar perfiles recuperando el pago anterior hasta que empieces la preparación; después trabajan contigo toda la temporada.</p></div></div>
       <div class="guide-step"><b>02</b><div><h3>De abril al invierno: armar y ensayar</h3><p>Armá el elenco mucho antes de noviembre: buscá artistas, escuchá audiciones y negociá según la reputación de tu murga. Los ensayos comienzan en julio en esta campaña. Dirigí a 13 coreutas, 3 percusionistas y 1 director/a escénico/a. Solo el coro usa cuerdas; bombo, redoblante, platillos y dirección tienen técnica y energía propias. Ensayar mejora cada función. La admisión decide el ingreso de quienes no clasificaron por la Liguilla anterior. Las finalistas confirman su inscripción directa, sin prueba, puntaje ni desgaste.</p></div></div>
       <div class="guide-step"><b>03</b><div><h3>De la idea al espectáculo</h3><p>Desde abril podés darle un título y una temática al espectáculo. Trabajá los textos y arreglos del saludo, cuplé y retirada con tus técnicos: cada trabajo cuesta dinero y una jornada. El primer trabajo o ensayo confirma el plan de ese año. Desde julio, elegí entre una pasada general o concentrar el ensayo en una parte. Desarrollar el material permite preparar mejor su interpretación. El progreso indica trabajo realizado, no una nota del jurado.</p></div></div>
       <div class="guide-step"><b>04</b><div><h3>Ahora sí: tablados y concurso</h3><p>El circuito abre a fines de enero. Las actuaciones generan dinero y desgaste. Todos los conjuntos admitidos hacen las dos primeras ruedas; la suma define el ingreso a la Liguilla. El ganador surge de sumar las tres ruedas, sin contar la admisión.</p></div></div>
-      <div class="guide-note"><h3>La murga también se cuida</h3><p>Conversá con candidatos para construir confianza antes de una oferta. Disponés de tres conversaciones por jornada y cada persona necesita tiempo entre charlas. En El barrio podés organizar hasta tres festivales de financiación antes del carnaval o dedicar una jornada a la convivencia. Las decisiones del año tienen consecuencias visibles y siempre una alternativa sin gasto.</p><h3>Una historia que continúa</h3><p>Desde El barrio podés ponerle nombre y barrio a la murga. Su historia conserva hasta 50 temporadas cerradas, sus cuentas y la trayectoria del elenco. Las notas del carnaval actual siguen reservadas hasta los fallos; al pasar de año, el cierre queda archivado antes de financiar la siguiente campaña.</p><h3>Las reglas de este juego</h3><p>Los puntajes de concurso se reservan hasta los fallos. Los valores económicos son estimaciones del juego en UYU, con referencias históricas consultables. La habilidad individual permanece oculta; los informes de audición son aproximados. 13 coreutas, 3 percusionistas y 1 director es nuestra plantilla, no una distribución universal obligatoria.</p><p>Los cinco técnicos están fuera de las plazas escénicas. En la práctica una persona puede desempeñar varios oficios; aquí se contratan por separado para que puedas decidir cómo invertir.</p><p>La declaración de repertorio documenta autores y obras; prepararla no equivale a una autorización universal.</p></div>
+      <div class="guide-note"><h3>La murga también se cuida</h3><p>Conversá con candidatos para construir confianza antes de una oferta. Disponés de tres conversaciones por jornada y cada persona necesita tiempo entre charlas. En El barrio podés organizar hasta tres festivales de financiación antes del carnaval o dedicar una jornada a la convivencia. Las decisiones del año tienen consecuencias visibles y siempre una alternativa sin gasto.</p><h3>Una historia que continúa</h3><p>Desde El barrio podés ponerle nombre y barrio a la murga. Su historia conserva hasta 50 temporadas cerradas, sus cuentas y la trayectoria del elenco. Las notas del carnaval actual siguen reservadas hasta los fallos; al pasar de año, el cierre queda archivado antes de financiar la siguiente campaña. En abril, revisá los 17 acuerdos: podés renovar, mejorar la oferta o buscar un reemplazo de la misma función. La fama, la reputación, el vínculo y el ánimo influyen en la decisión. Los cachés por actuación se pagan aparte. La preparación empieza cuando el elenco está confirmado.</p><h3>Las reglas de este juego</h3><p>Los puntajes de concurso se reservan hasta los fallos. Los valores económicos son estimaciones del juego en UYU, con referencias históricas consultables. La habilidad individual permanece oculta; los informes de audición son aproximados. 13 coreutas, 3 percusionistas y 1 director es nuestra plantilla, no una distribución universal obligatoria.</p><p>Los cinco técnicos están fuera de las plazas escénicas. En la práctica una persona puede desempeñar varios oficios; aquí se contratan por separado para que puedas decidir cómo invertir.</p><p>La declaración de repertorio documenta autores y obras; prepararla no equivale a una autorización universal.</p></div>
       <p class="fineprint">La partida se guarda en este dispositivo. ${modelReady?'Elenco con cuerpo común, vestuario intercambiable y animaciones. Personalizá a cada integrante en el taller.':'El elenco 3D está cargando; si falla, muestra figuras provisionales.'}</p><button class="outline-button" data-open="reset">${icon('refresh')} Próxima temporada</button>`;
     }
     if (page === 'taller') body = showBrief(state) + `<button class="outline-button team-summary" data-open="vestuario">${icon('shirt')} Diseño y confección del vestuario ${icon('arrow')}</button>` + body;
@@ -351,6 +368,7 @@ async function boot() {
     const target=(event.target as Element).closest<HTMLButtonElement>('button');
     if(!target||target.disabled) return;
     if(target.dataset.open) openPanel(target.dataset.open);
+    else if(target.dataset.panel) openPanel(target.dataset.panel);
     else if(target.hasAttribute('data-wardrobe')) showWardrobe();
     else if(target.dataset.camera) { if(target.dataset.camera === 'reset') scene?.resetCamera(); else scene?.zoomCamera(target.dataset.camera === 'in' ? 1 / 1.2 : 1.2); }
     else if(target.hasAttribute('data-expand-scene')) expandScene(!sceneExpanded);
@@ -377,8 +395,11 @@ async function boot() {
     }
     else if(target.dataset.upgrade) commit(buyUpgrade(state,target.dataset.upgrade as Upgrade));
     else if(target.dataset.recruit) { commit(recruit(state,target.dataset.recruit,replacement,market.offer)); saveCosmetics(); }
+    else if(target.dataset.renew) commit(renewMember(state,target.dataset.renew,renewalOffers[target.dataset.renew] ?? 'standard'));
+    else if(target.hasAttribute('data-renew-all')) commit(renewAllWilling(state));
+    else if(target.dataset.replaceMember) { replacement=target.dataset.replaceMember; market.query=''; market.fame='all'; market.page=0; market.offer='standard'; openPanel('fichajes'); }
     else if(target.dataset.scout) commit(scoutMember(state,target.dataset.scout));
-    else if(target.dataset.contact) commit(contactCandidate(state,target.dataset.contact));
+    else if(target.dataset.contact) commit(contactMember(state,target.dataset.contact));
     else if(target.dataset.resolveDecision) { const hadDecision=state.pendingDecision; commit(resolveDecision(state,target.dataset.resolveDecision)); if(hadDecision && !state.pendingDecision) openPanel('comunidad'); }
     else if(target.dataset.marketPage !== undefined) { market.page=Number(target.dataset.marketPage); renderPanel(); document.querySelector('.market-count')?.scrollIntoView({block:'start'}); }
     else if(target.dataset.previewProposal) showWardrobe(target.dataset.previewProposal);
@@ -389,7 +410,7 @@ async function boot() {
     }
     else if(target.hasAttribute('data-refresh')) commit(refreshCandidates(state));
     else if(target.hasAttribute('data-license')) commit(buyLicense(state));
-    else if(target.hasAttribute('data-reset')) { const next=nextSeason(state); if(next.season===state.season) { toast(next.lastMessage); return; } state=next; replacement=state.members[0].id; market.page=0; creativeRole='lyrics'; theatrePreview=false; save(); dialog.close(); render(); toast(state.lastMessage); }
+    else if(target.hasAttribute('data-reset')) { const next=nextSeason(state); if(next.season===state.season) { toast(next.lastMessage); return; } state=next; renewalOffers={}; replacement=state.members[0].id; market.page=0; creativeRole='lyrics'; theatrePreview=false; save(); render(); openPanel('contratos'); toast(state.lastMessage); }
   });
   document.addEventListener('submit', event => {
     const form = event.target;
@@ -446,7 +467,12 @@ async function boot() {
   document.addEventListener('change',event=>{
     const target=event.target as HTMLSelectElement;
     if (target.closest('#show-plan-form')) { updateShowDraft(); return; }
-    if(target.id==='rehearsal-focus') { commit(setRehearsalFocus(state,target.value as RehearsalFocus)); document.querySelector<HTMLSelectElement>('#rehearsal-focus')?.focus({preventScroll:true}); }
+    if(target.dataset.renewalOffer) {
+      const id=target.dataset.renewalOffer;
+      renewalOffers[id]=target.value as RecruitmentOffer; panelNotice=''; renderPanel();
+      dialog.querySelector<HTMLSelectElement>(`[data-renewal-offer="${CSS.escape(id)}"]`)?.focus({preventScroll:true});
+    }
+    else if(target.id==='rehearsal-focus') { commit(setRehearsalFocus(state,target.value as RehearsalFocus)); document.querySelector<HTMLSelectElement>('#rehearsal-focus')?.focus({preventScroll:true}); }
     else if(target.id==='replacement') { replacement=target.value; market.page=0; panelNotice=''; renderPanel(); document.querySelector<HTMLSelectElement>('#replacement')?.focus(); }
     else if(target.id.startsWith('market-')) {
       if(target.id==='market-fame') market.fame=target.value;
