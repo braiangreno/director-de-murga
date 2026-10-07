@@ -59,6 +59,16 @@
 .career-page summary > .career-icon:last-child { width: 17px; height: 17px; color: #9d245f; }
 .career-page details[open] > summary > .career-icon:last-child { transform: rotate(90deg); }
 .career-results { margin-top: 17px; border-top: 1px solid var(--career-line); }
+.career-show { margin-top: 17px; border-top: 1px solid var(--career-line); }
+.career-show > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; }
+.career-show > summary small { display: block; font-size: 8px; letter-spacing: 1px; color: var(--career-muted); }
+.career-show > summary strong { display: block; margin-top: 5px; font-size: 16px; line-height: 1.4; }
+.career-show-content > p { font-size: 11px; color: var(--career-muted); }
+.career-show-content ul { list-style: none; padding: 0; margin: 12px 0; }
+.career-show-content li { padding: 10px 0; border-bottom: 1px solid var(--career-line); }
+.career-show-content li strong, .career-show-content li span { display: block; font-size: 11px; line-height: 1.6; }
+.career-show-content li span { color: var(--career-muted); }
+.career-show-content button { width: 100%; }
 .career-results > summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12px; font-weight: 600; padding: 8px 0; }
 .career-performance { padding-top: 5px; }
 .career-rounds { list-style: none; padding: 0; margin: 0; }

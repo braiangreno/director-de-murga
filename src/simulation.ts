@@ -9,6 +9,30 @@ export type Upgrade = 'voices' | 'lyrics' | 'costumes' | 'staging';
 export type MemberRole = 'chorister' | 'bombo' | 'redoblante' | 'platillos' | 'director';
 export type CreativeRole = 'lyrics' | 'arrangements' | 'costumes' | 'makeup' | 'staging';
 export type RecruitmentOffer = 'standard' | 'generous' | 'premium';
+export type ShowSectionId = 'saludo' | 'cuple' | 'retirada';
+export type ShowWork = 'text' | 'arrangements';
+export type RehearsalFocus = 'general' | ShowSectionId;
+export interface ShowSectionProgress { text: number; arrangements: number; rehearsal: number; }
+export interface ShowState {
+  title: string; themeId: string; focus: RehearsalFocus; locked: boolean;
+  sections: Record<ShowSectionId, ShowSectionProgress>;
+}
+/** Public production progress is not a jury mark or a report of hidden ability. */
+export interface ShowSnapshot {
+  title: string; themeId: string; themeName: string; readiness: number;
+  sections: (ShowSectionProgress & {id: ShowSectionId})[];
+}
+export const SHOW_THEMES = [
+  {id:'barrio',name:'La esquina y su gente',description:'Un barrio imaginario busca cómo escucharse. Desarrollo equilibrado de textos y arreglos.'},
+  {id:'memoria',name:'Las voces que vuelven',description:'Recuerdos ficticios pasan de una generación a otra. Afinidad con el desarrollo coral.'},
+  {id:'satira',name:'El ministerio del disparate',description:'Una oficina imaginaria intenta reglamentar la alegría. Afinidad con la escritura satírica.'},
+] as const;
+export const SHOW_SECTIONS: {id:ShowSectionId;name:string;description:string}[] = [
+  {id:'saludo',name:'Saludo',description:'La presentación de la murga y del mundo del espectáculo.'},
+  {id:'cuple',name:'Cuplé',description:'El desarrollo de una situación, sus personajes y sus remates.'},
+  {id:'retirada',name:'Retirada',description:'La despedida y la idea que el grupo deja resonando.'},
+];
+const SHOW_WORK_COSTS: Record<ShowWork, number> = {text:4000,arrangements:5000};
 export interface CreativeCandidate {
   id: string; name: string; nickname: string; role: CreativeRole;
   level: 'Barrial' | 'Profesional' | 'Referente'; fee: number; quality: number;
@@ -42,6 +66,7 @@ export interface PublicSeasonReport {
   admissionExempt: boolean; results: {name:string;score:number|null;passed:boolean}[];
   contestTotal: number | null; contestAverage: number | null; rank: number | null;
   roundsCompleted: number; scoresPublic: boolean;
+  show: ShowSnapshot | null;
 }
 export interface SeasonArchive extends PublicSeasonReport {
   outcome: SeasonOutcome; scoresPublic: true; closingCash: number;
@@ -57,7 +82,7 @@ export const OUTCOME_LABELS: Record<SeasonOutcome | 'in-progress', string> = {
 };
 
 export interface State {
-  version: 6; identity: MurgaIdentity; history: SeasonArchive[]; career: CareerCounters;
+  version: 7; identity: MurgaIdentity; history: SeasonArchive[]; career: CareerCounters; show: ShowState;
   season: number; day: number; money: number; fans: number; reputation: number;
   productionStarted: boolean; admissionExempt: boolean; creativeTeam: Record<CreativeRole, string | null>;
   creativeFees: Record<CreativeRole, number>; costumeProposalId: string | null;
@@ -131,9 +156,29 @@ const clamp = (value: number, min = 0, max = 100) => Math.max(min, Math.min(max,
 const average = (values: number[]) => values.reduce((sum, value) => sum + value, 0) / values.length;
 const sumScores = (values: number[]) => round(values.reduce((sum, value) => sum + value, 0));
 
+function emptyShow():ShowState {
+  return {title:'Una voz en la esquina',themeId:'barrio',focus:'general',locked:false,
+    sections:{saludo:{text:0,arrangements:0,rehearsal:0},cuple:{text:0,arrangements:0,rehearsal:0},retirada:{text:0,arrangements:0,rehearsal:0}}};
+}
+function cloneShow(show:ShowState):ShowState {
+  return {...show,sections:{saludo:{...show.sections.saludo},cuple:{...show.sections.cuple},retirada:{...show.sections.retirada}}};
+}
+function cloneShowSnapshot(show:ShowSnapshot|null):ShowSnapshot|null {
+  return show?{...show,sections:show.sections.map(section=>({...section}))}:null;
+}
+function showReadiness(sections:ShowSectionProgress[]):number {
+  return round(average(sections.map(section=>(section.text+section.arrangements+section.rehearsal)/3)));
+}
+function showSnapshot(show:ShowState):ShowSnapshot {
+  const sections=SHOW_SECTIONS.map(({id})=>({id,...show.sections[id]}));
+  return {title:show.title,themeId:show.themeId,themeName:SHOW_THEMES.find(theme=>theme.id===show.themeId)!.name,
+    readiness:showReadiness(sections),sections};
+}
+function rehearsalLimit(section:ShowSectionProgress):number { return round(20+.8*Math.min(section.text,section.arrangements)); }
+
 
 function copy(state:State):State {
-  return {...state,identity:{...state.identity},history:state.history.map(cloneArchive),career:{...state.career},creativeTeam:{...state.creativeTeam},creativeFees:{...state.creativeFees},accounts:{...state.accounts},
+  return {...state,identity:{...state.identity},history:state.history.map(cloneArchive),career:{...state.career},show:cloneShow(state.show),creativeTeam:{...state.creativeTeam},creativeFees:{...state.creativeFees},accounts:{...state.accounts},
     members:state.members.map(m=>({...m})),candidates:state.candidates.map(m=>({...m})),upgrades:{...state.upgrades},
     results:state.results.map(r=>({...r})),rivals:state.rivals.map(r=>({...r,scores:[...r.scores]})),log:[...state.log],
     resolvedDecisions:[...state.resolvedDecisions],decisionHistory:state.decisionHistory.map(d=>({...d}))};
@@ -161,7 +206,7 @@ function makeCandidate(state:State,index:number):Member {
     scouting:0,participation:0,morale:70,rapport:0,lastContactDay:-1};
 }
 export function createGame(seed=2026):State {
-  const state:State={version:6,identity:{...DEFAULT_IDENTITY},history:[],career:{sinceSeason:1,completedSeasons:0,championships:0,finals:0},season:1,day:0,money:INITIAL_BUDGET,fans:40,reputation:20,productionStarted:false,admissionExempt:false,
+  const state:State={version:7,identity:{...DEFAULT_IDENTITY},history:[],career:{sinceSeason:1,completedSeasons:0,championships:0,finals:0},show:emptyShow(),season:1,day:0,money:INITIAL_BUDGET,fans:40,reputation:20,productionStarted:false,admissionExempt:false,
     creativeTeam:emptyTeam(),creativeFees:emptyFees(),costumeProposalId:null,accounts:emptyAccounts(INITIAL_BUDGET),fallosRevealed:false,
     contactsToday:0,fundraisersUsed:0,pendingDecision:null,resolvedDecisions:[],decisionHistory:[],
     members:[],candidates:[],upgrades:{voices:0,lyrics:0,costumes:0,staging:0},licensed:false,penalty:0,results:[],
@@ -208,7 +253,7 @@ export function setIdentity(state:State,identity:MurgaIdentity):State {
   return next;
 }
 function cloneArchive(archive:SeasonArchive):SeasonArchive {
-  return {...archive,identity:{...archive.identity},accounts:{...archive.accounts},
+  return {...archive,identity:{...archive.identity},accounts:{...archive.accounts},show:cloneShowSnapshot(archive.show),
     roster:archive.roster.map(member=>({...member})),results:archive.results.map(result=>({...result}))};
 }
 function seasonOutcome(state:State):SeasonOutcome|'in-progress' {
@@ -226,7 +271,7 @@ function publicSeasonReport(state:State,closing=false):PublicSeasonReport {
     results:state.results.map((result,index)=>({name:result.name,
       score:index===0?(state.admissionExempt?null:result.score):scoresPublic?result.score:null,passed:result.passed})),
     contestTotal:scoresPublic?summary.contestTotal:null,contestAverage:scoresPublic?summary.contestAverage:null,
-    rank:scoresPublic?summary.rank:null,roundsCompleted:summary.roundsCompleted,scoresPublic};
+    rank:scoresPublic?summary.rank:null,roundsCompleted:summary.roundsCompleted,scoresPublic,show:showSnapshot(state.show)};
 }
 /** Safe for rendering throughout the current season: sealed jury marks and ranks are null. */
 export function getSeasonReport(state:State):PublicSeasonReport { return publicSeasonReport(state); }
@@ -322,6 +367,87 @@ export function startSeason(state:State):State {
   log(next,'Producción iniciada en abril. El mercado sigue abierto hasta septiembre; prepará el repertorio para la admisión de noviembre.');
   return next;
 }
+
+export function validateShowPlan(input:unknown):{valid:boolean;reason:string;plan:{title:string;themeId:string}|null} {
+  if(!input||typeof input!=='object'||Array.isArray(input))
+    return {valid:false,reason:'Ingresá un título y elegí un tema para el espectáculo.',plan:null};
+  const {title,themeId}=input as Record<string,unknown>;
+  if(typeof title!=='string'||/[<>\p{Cc}\p{Cf}]/u.test(title))
+    return {valid:false,reason:'El título debe tener entre 2 y 60 caracteres, sin etiquetas ni caracteres de control.',plan:null};
+  const normalized=title.normalize('NFC').replace(/\s+/gu,' ').trim();
+  if([...normalized].length<2||[...normalized].length>60)
+    return {valid:false,reason:'El título debe tener entre 2 y 60 caracteres.',plan:null};
+  if(typeof themeId!=='string'||!SHOW_THEMES.some(theme=>theme.id===themeId))
+    return {valid:false,reason:'Elegí uno de los temas disponibles.',plan:null};
+  return {valid:true,reason:'',plan:{title:normalized,themeId}};
+}
+export function getShowSummary(state:State):{
+  title:string;themeId:string;themeName:string;themeDescription:string;locked:boolean;focus:RehearsalFocus;
+  readiness:number;sections:(ShowSectionProgress&{id:ShowSectionId;name:string;description:string})[];canEdit:boolean;editReason:string;
+} {
+  const theme=SHOW_THEMES.find(theme=>theme.id===state.show.themeId)!;
+  const editReason=state.status!=='playing'?'El espectáculo de esta temporada ya terminó.':state.show.locked?
+    'El primer trabajo o ensayo confirmó el título y el tema para esta temporada.':'';
+  return {...showSnapshot(state.show),themeDescription:theme.description,locked:state.show.locked,focus:state.show.focus,
+    sections:SHOW_SECTIONS.map(section=>({...section,...state.show.sections[section.id]})),canEdit:!editReason,editReason};
+}
+export function configureShow(state:State,plan:{title:string;themeId:string}):State {
+  const summary=getShowSummary(state);
+  if(!summary.canEdit) return notice(state,summary.editReason);
+  const validated=validateShowPlan(plan);
+  if(!validated.valid) return notice(state,validated.reason);
+  if(state.show.title===validated.plan!.title&&state.show.themeId===validated.plan!.themeId)
+    return notice(state,'El plan del espectáculo ya está guardado.');
+  const next=copy(state);Object.assign(next.show,validated.plan!);
+  log(next,`Espectáculo planificado: «${next.show.title}». Podés editarlo hasta el primer trabajo técnico o ensayo.`);
+  return next;
+}
+export function setRehearsalFocus(state:State,focus:RehearsalFocus):State {
+  if(state.status!=='playing') return notice(state,'La temporada terminó; el próximo espectáculo tendrá su propio plan de ensayos.');
+  if(focus!=='general'&&!SHOW_SECTIONS.some(section=>section.id===focus)) return notice(state,'Ese foco de ensayo no existe.');
+  const next=copy(state);next.show.focus=focus;
+  log(next,`Próximo ensayo: ${focus==='general'?'repaso general':SHOW_SECTIONS.find(section=>section.id===focus)!.name}. Cambiar el foco no consume una jornada.`);
+  return next;
+}
+function showWorkGain(state:State,work:ShowWork):number {
+  const role=work==='text'?'lyrics':'arrangements';
+  const quality=CREATIVE_CANDIDATES.find(candidate=>candidate.id===state.creativeTeam[role])?.quality??45;
+  const affinity=state.show.themeId==='barrio'?2:
+    state.show.themeId==='memoria'&&work==='arrangements'||state.show.themeId==='satira'&&work==='text'?4:0;
+  return 50+(quality-45)/4+affinity;
+}
+export function getShowWorkAvailability(state:State,sectionId:ShowSectionId,work:ShowWork):{enabled:boolean;reason:string;cost:number;gain:number} {
+  if(!SHOW_SECTIONS.some(section=>section.id===sectionId)||!Object.hasOwn(SHOW_WORK_COSTS,work))
+    return {enabled:false,reason:'Ese trabajo o sección no existe.',cost:0,gain:0};
+  const cost=SHOW_WORK_COSTS[work],gain=round(Math.min(100-state.show.sections[sectionId][work],showWorkGain(state,work)));
+  const denied=(reason:string)=>({enabled:false,reason,cost,gain});
+  if(state.status!=='playing') return denied('La temporada terminó. Prepará otro espectáculo al comenzar el próximo año.');
+  if(!state.productionStarted) return denied('Contratá los cinco puestos técnicos e iniciá la producción antes de desarrollar el espectáculo.');
+  if(getPendingDecision(state)) return denied('Resolvé la decisión del grupo antes de avanzar esta jornada.');
+  if(EVENTS.some(event=>event.day===state.day)) return denied(`Hoy toca ${getCalendar(state).eventName}. Presentate para continuar.`);
+  if(gain<=0) return denied('Este trabajo ya está terminado en esta sección.');
+  if(state.money<cost) return denied(`Este trabajo necesita $${cost} UYU de producción.`);
+  return {enabled:true,reason:'',cost,gain};
+}
+export function developShow(state:State,sectionId:ShowSectionId,work:ShowWork):State {
+  const availability=getShowWorkAvailability(state,sectionId,work);
+  if(!availability.enabled) return notice(state,availability.reason);
+  const next=copy(state);
+  next.money-=availability.cost;next.accounts.rehearsals+=availability.cost;
+  next.show.locked=true;next.show.sections[sectionId][work]=round(next.show.sections[sectionId][work]+availability.gain);
+  advanceDay(next);
+  log(next,`${SHOW_SECTIONS.find(section=>section.id===sectionId)!.name}: ${work==='text'?'texto':'arreglos'} +${availability.gain} de preparación. Trabajo técnico: $${availability.cost} UYU y una jornada; sin práctica ni desgaste del elenco.`);
+  return next;
+}
+function rehearseShow(show:ShowState):void {
+  show.locked=true;
+  for(const {id} of SHOW_SECTIONS) {
+    if(show.focus!=='general'&&show.focus!==id) continue;
+    const section=show.sections[id];
+    section.rehearsal=round(Math.min(rehearsalLimit(section),section.rehearsal+(show.focus==='general'?12:36)));
+  }
+}
+
 export function getStats(state: State): { energy: number; harmony: number; quality: number; projectedScore: number; percussion: number; direction: number; chorusSize: number } {
   const energy = average(state.members.map(m => m.energy));
   const chorus = state.members.filter(member => member.role === 'chorister');
@@ -334,9 +460,13 @@ export function getStats(state: State): { energy: number; harmony: number; quali
   const imbalance = CORDS.reduce((sum, cord, i) => sum + Math.abs(chorus.filter(m => m.assignedCord === cord).length - IDEAL_CORDS[i]), 0);
   const balanced = clamp(1 - imbalance / 16, 0, 1);
   const harmony = clamp(aligned * 70 + balanced * 30);
+  const sections=Object.values(state.show.sections);
+  // Additive bonuses only: up to +4 in each category, zero for unrecorded legacy work.
+  const showVoices=average(sections.map(section=>section.arrangements+section.rehearsal))*.02;
+  const showTexts=average(sections.map(section=>section.text))*.04;
   const voices = clamp(average(chorus.map(m => m.voice + m.experience * .025)) * .65 + harmony * .35 + state.upgrades.voices * 7 + effects.voices
-    + (percussion - 55) * .12 + (direction - 55) * .08);
-  const lyrics = clamp(43 + state.upgrades.lyrics * 10 + effects.lyrics);
+    + (percussion - 55) * .12 + (direction - 55) * .08 + showVoices);
+  const lyrics = clamp(43 + state.upgrades.lyrics * 10 + effects.lyrics + showTexts);
   const costumes = clamp((state.costumeProposalId ? 52 : 30) + state.upgrades.costumes * 10 + effects.costumes);
   const makeup = clamp(48 + effects.makeup);
   const staging = clamp(45 + state.upgrades.staging * 10 + average(chorus.map(m => m.charisma)) * .08 + effects.staging + (direction - 55) * .08);
@@ -587,7 +717,7 @@ export function getActionPreview(state:State,action:Action):{money:number;energy
     return {money:festival.net,energy,label:`Festival barrial: recaudación ${festival.gross}; organización ${festival.cost} UYU. Ánimo +4, seguidores +35. Usa uno de los tres festivales del año.`};
   }
   if(action==='community') return {money:-ECONOMY_COSTS.community,energy,label:'Encuentro del elenco: hasta +10 de ánimo, +8 de energía, +3 de lealtad y +5 de vínculo. Comida y materiales incluidos.'};
-  if(action==='rehearse') return {money:-ECONOMY_COSTS.rehearsal,energy,label:'Ensayo: práctica y experiencia; local, apoyo y logística incluidos'};
+  if(action==='rehearse') return {money:-ECONOMY_COSTS.rehearsal,energy,label:`Ensayo ${state.show.focus==='general'?'general: hasta +12 de interpretación por sección':`${SHOW_SECTIONS.find(section=>section.id===state.show.focus)!.name}: hasta +36 de interpretación`}. El avance depende del texto y los arreglos; práctica, experiencia y logística incluidos.`};
   if(action==='rest') return {money:0,energy,label:state.day<REHEARSALS_START_DAY?'Avanzar el armado y la planificación':'Descansar y cuidar la voz'};
   if(action==='popular'||action==='commercial') {
     const e=getEconomySummary(state)[action];
@@ -653,7 +783,10 @@ export function performAction(state: State, action: Action): State {
       : `¡Clasificaste a la Liguilla! Pasan ${summary.finalists} murgas por la suma de las dos ruedas. Los puntajes permanecen reservados hasta los Fallos.`);
   } else {
     next.money += preview.money;
-    if (action === 'rehearse') next.accounts.rehearsals += ECONOMY_COSTS.rehearsal;
+    if (action === 'rehearse') {
+      next.accounts.rehearsals += ECONOMY_COSTS.rehearsal;
+      rehearseShow(next.show);
+    }
     if(action==='fundraiser') {
       next.fundraisersUsed++;
       next.accounts.communityIncome+=getEconomySummary(state).fundraiser.gross;
@@ -807,6 +940,7 @@ export function nextSeason(state:State):State {
   next.season++;next.day=0;next.status='playing';next.productionStarted=false;next.fallosRevealed=false;
   next.contactsToday=0;next.fundraisersUsed=0;next.pendingDecision=null;next.resolvedDecisions=[];next.decisionHistory=[];
   next.creativeTeam=emptyTeam();next.creativeFees=emptyFees();next.costumeProposalId=null;
+  next.show=emptyShow();
   next.upgrades={voices:0,lyrics:0,costumes:0,staging:0};next.licensed=false;next.results=[];
   next.rivals.forEach(r=>{r.scores=[];});
   const renewal=getSeasonRenewalCost(state);
@@ -894,6 +1028,13 @@ function migrateV5(raw:Record<string,unknown>):unknown {
     career:{sinceSeason:raw.season,completedSeasons:0,championships:0,finals:0}};
 }
 
+/** Earlier preparations are unknown: do not invent work or modify sealed results. */
+function migrateV6(raw:Record<string,unknown>):unknown {
+  if(!Array.isArray(raw.history)) return null;
+  return {...raw,version:7,show:emptyShow(),history:raw.history.map(entry=>
+    entry&&typeof entry==='object'&&!Array.isArray(entry)?{...entry,show:null}:entry)};
+}
+
 /** Reject corrupted/out-of-schema saves; local saves are not an anti-cheat security boundary. */
 export function parseSave(raw: string | null): State | null {
   if (!raw || raw.length > 600000) return null;
@@ -903,11 +1044,28 @@ export function parseSave(raw: string | null): State | null {
     const number = (v: unknown, min: number, max: number, integer = false): v is number => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max && (!integer || Number.isInteger(v));
     const text = (v: unknown, max: number): v is string => typeof v === 'string' && v.length > 0 && v.length <= max;
     const score = (v: unknown, min = 0) => number(v, min, 100) && Math.abs(round(v) - v) < 1e-9;
+    const exactKeys=(input:Record<string,unknown>,keys:string[])=>Object.keys(input).length===keys.length&&keys.every(key=>Object.hasOwn(input,key));
+    const showPlan=(input:Record<string,unknown>):boolean=>{
+      const validation=validateShowPlan(input);
+      return validation.valid&&validation.plan!.title===input.title&&validation.plan!.themeId===input.themeId;
+    };
+    const sectionProgress=(input:unknown,withId=false):input is ShowSectionProgress=>
+      object(input)&&exactKeys(input,withId?['id','text','arrangements','rehearsal']:['text','arrangements','rehearsal'])&&
+      score(input.text)&&score(input.arrangements)&&score(input.rehearsal)&&
+      (input.rehearsal as number)<=rehearsalLimit(input as unknown as ShowSectionProgress);
+    const publicShow=(input:unknown):boolean=>{
+      if(input===null) return true;
+      if(!object(input)||!exactKeys(input,['title','themeId','themeName','readiness','sections'])||!showPlan(input)||
+        input.themeName!==SHOW_THEMES.find(theme=>theme.id===input.themeId)?.name||!Array.isArray(input.sections)||input.sections.length!==3||
+        !input.sections.every((section,index)=>sectionProgress(section,true)&&(section as unknown as {id:unknown}).id===SHOW_SECTIONS[index].id)) return false;
+      return input.readiness===showReadiness(input.sections as ShowSectionProgress[]);
+    };
     if (object(value) && value.version === 3) value = migrateV3(value);
     if(object(value)&&value.version===4&&!Object.hasOwn(value,'admissionExempt')) value.admissionExempt=false;
     if(object(value)&&value.version===4) value=migrateV4(value);
     if(object(value)&&value.version===5) value=migrateV5(value);
-    if (!object(value) || value.version !== 6 || !number(value.season, 1, 10000, true) || !number(value.day, 0, TOTAL_DAYS - 1, true) ||
+    if(object(value)&&value.version===6) value=migrateV6(value);
+    if (!object(value) || value.version !== 7 || !number(value.season, 1, 10000, true) || !number(value.day, 0, TOTAL_DAYS - 1, true) ||
       !number(value.money, 0, 1000000000, true) || !number(value.fans, 0, 1000000000, true) || !number(value.seed, 0, 4294967295, true) ||
       typeof value.licensed !== 'boolean' || typeof value.productionStarted !== 'boolean' || typeof value.fallosRevealed !== 'boolean' || value.penalty !== 0 || !['playing', 'won', 'lost'].includes(value.status as string) ||
       !text(value.lastMessage, 1000) || !Array.isArray(value.log) || value.log.length > 30 || !value.log.every(item => text(item, 1000))) return null;
@@ -932,6 +1090,14 @@ export function parseSave(raw: string | null): State | null {
       object(rival) && rival.id === `r-${i}` && rival.name === RIVAL_NAMES[i] && Array.isArray(rival.scores) &&
       rival.scores.length <= 3 && rival.scores.every(item => score(item, 40)))) return null;
     const state = value as unknown as State;
+    if(!object(state.show)||!exactKeys(state.show as unknown as Record<string,unknown>,['title','themeId','focus','locked','sections'])||
+      !showPlan(state.show as unknown as Record<string,unknown>)||typeof state.show.locked!=='boolean'||
+      (state.show.focus!=='general'&&!SHOW_SECTIONS.some(section=>section.id===state.show.focus))||
+      !object(state.show.sections)||!exactKeys(state.show.sections as unknown as Record<string,unknown>,SHOW_SECTIONS.map(section=>section.id))||
+      !SHOW_SECTIONS.every(({id})=>sectionProgress(state.show.sections[id]))) return null;
+    const showProgress=Object.values(state.show.sections);
+    const hasShowProgress=showProgress.some(section=>section.text>0||section.arrangements>0||section.rehearsal>0);
+    if(state.show.locked!==hasShowProgress || (state.show.locked&&(!state.productionStarted||state.day===0))) return null;
     if(typeof state.admissionExempt!=='boolean'||(state.admissionExempt&&state.season<2)) return null;
     if (state.fallosRevealed && (state.status !== 'lost' || state.day !== EVENTS[2].day)) return null;
     const production = getProductionSummary(state);
@@ -943,6 +1109,11 @@ export function parseSave(raw: string | null): State | null {
       !accountKeys.every(key=>number(state.accounts[key],0,10000000000,true)) ||
       accountBalance(state.accounts)!==state.money ||
       state.accounts.technical!==CREATIVE_ROLES.reduce((sum,role)=>sum+state.creativeFees[role],0)) return null;
+    const minimumTextWork=showProgress.reduce((total,section)=>total+Math.ceil(section.text/showWorkGain(state,'text')),0);
+    const minimumArrangementWork=showProgress.reduce((total,section)=>total+Math.ceil(section.arrangements/showWorkGain(state,'arrangements')),0);
+    const minimumRehearsals=Math.ceil(showProgress.reduce((total,section)=>total+section.rehearsal,0)/36);
+    if(minimumTextWork+minimumArrangementWork+minimumRehearsals>state.day ||
+      state.accounts.rehearsals<minimumTextWork*SHOW_WORK_COSTS.text+minimumArrangementWork*SHOW_WORK_COSTS.arrangements+minimumRehearsals*ECONOMY_COSTS.rehearsal) return null;
 
     const identity=(input:unknown):input is MurgaIdentity=>{
       if(!object(input)||Object.keys(input).length!==2) return false;
@@ -957,7 +1128,7 @@ export function parseSave(raw: string | null): State | null {
       !number(state.career.championships,0,state.career.finals,true)||
       !Array.isArray(state.history)||state.history.length!==Math.min(HISTORY_LIMIT,state.career.completedSeasons)) return null;
     const archiveKeys=['season','identity','outcome','cash','reputation','fans','accounts','roster','admissionExempt',
-      'results','contestTotal','contestAverage','rank','roundsCompleted','scoresPublic','closingCash'];
+      'results','contestTotal','contestAverage','rank','roundsCompleted','scoresPublic','closingCash','show'];
     const rosterKeys=['id','name','role','experience','fame'];
     const archiveMember=(member:unknown):member is PublicRosterMember=>object(member)&&
       Object.keys(member).length===rosterKeys.length&&rosterKeys.every(key=>Object.hasOwn(member,key))&&
@@ -966,6 +1137,7 @@ export function parseSave(raw: string | null): State | null {
     const validArchive=(input:unknown,index:number):boolean=>{
       if(!object(input)||Object.keys(input).length!==archiveKeys.length||!archiveKeys.every(key=>Object.hasOwn(input,key))||
         input.season!==state.season-state.history.length+index||!identity(input.identity)||
+        !publicShow(input.show)||
         !['not-admitted','second-round','finalist','champion'].includes(input.outcome as string)||
         input.scoresPublic!==true||!number(input.cash,0,1000000000,true)||input.closingCash!==input.cash||
         !number(input.reputation,0,100)||!number(input.fans,0,1000000000,true)||

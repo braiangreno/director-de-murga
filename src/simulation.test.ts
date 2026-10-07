@@ -10,6 +10,8 @@ import {
   contactCandidate,getContactAvailability,getPendingDecision,resolveDecision,getDecisionHistory,getCommunitySummary,
   CONTACTS_PER_DAY,FUNDRAISER_LIMIT,DECISION_DAYS,
   setIdentity,validateIdentity,getSeasonReport,getSeasonHistory,getRosterProgress,getCareerSummary,HISTORY_LIMIT,
+  SHOW_THEMES,SHOW_SECTIONS,validateShowPlan,configureShow,setRehearsalFocus,developShow,getShowSummary,getShowWorkAvailability,
+  type ShowSectionId,type ShowWork,type RehearsalFocus,
   type State,type Action,type Member,
 } from './simulation';
 
@@ -21,7 +23,7 @@ function setup(seed=2026):State {
 function started(seed=2026):State {return startSeason(setup(seed));}
 function save(state:State):void {assert.deepEqual(parseSave(JSON.stringify(state)),state,state.lastMessage);}
 function toV4(state:State):Record<string,unknown> {
-  const {contactsToday,fundraisersUsed,pendingDecision,resolvedDecisions,decisionHistory,...old}=state;
+  const {contactsToday,fundraisersUsed,pendingDecision,resolvedDecisions,decisionHistory,show,...old}=state;
   const {communityIncome,communityCosts,...accounts}=state.accounts;
   const oldMember=(member:Member)=>{const {morale,rapport,lastContactDay,...rest}=member;return rest;};
   return {...old,version:4,accounts,members:state.members.map(oldMember),candidates:state.candidates.map(oldMember)};
@@ -274,7 +276,7 @@ test('role practice, voice arrangement and energy influence artistic evaluation;
 test('v3 migration preserves identities, ability, saved performances and jury ballots, with one explicit financing adjustment',()=>{
   for(const active of [false,true]){
     const v3=legacyV3(0,active),migrated=parseSave(JSON.stringify(v3))!;
-    assert.ok(migrated);assert.equal(migrated.version,6);assert.equal(migrated.money,230000+880000);
+    assert.ok(migrated);assert.equal(migrated.version,7);assert.equal(migrated.money,230000+880000);
     assert.equal(migrated.day,active?15:0);assert.equal(migrated.candidates.length,120);
     assert.deepEqual(migrated.members.map(m=>[m.id,m.voice,m.skill,m.assignedCord]),(v3.members as Member[]).map(m=>[m.id,m.voice,m.skill,m.assignedCord]));
     assert.match(migrated.log[0],/880.000/);save(migrated);
@@ -443,7 +445,7 @@ test('v4 migration retains all old fields, activates only the current decision a
   for(const day of [0,7,8,13]){
     const v4=toV4({...started(),day});
     const migrated=parseSave(JSON.stringify(v4))!;
-    assert.ok(migrated);assert.equal(migrated.version,6);assert.deepEqual(toV4(migrated),v4);
+    assert.ok(migrated);assert.equal(migrated.version,7);assert.deepEqual(toV4(migrated),v4);
     assert.equal(migrated.accounts.communityIncome,0);assert.equal(migrated.accounts.communityCosts,0);
     assert.equal(migrated.contactsToday,0);assert.equal(migrated.fundraisersUsed,0);
     assert.ok(migrated.members.every(member=>member.morale===70&&member.lastContactDay===-1));
@@ -482,13 +484,14 @@ test('v5 validation rejects forged contact counters, missing decisions, repeated
 
 
 function asV5(state:State):Record<string,unknown> {
-  const {identity,history,career,...previous}=state;
+  const {identity,history,career,show,...previous}=state;
   return {...previous,version:5};
 }
-function failAdmission(state:State):State {
+function failAdmission(state:State,develop=false):State {
   let s=state;
   for(const role of CREATIVE_ROLES) s=hireCreative(s,CREATIVE_CANDIDATES.find(candidate=>candidate.role===role&&candidate.level==='Barrial')!.id);
   s=startSeason(s);
+  if(develop) s=developShow(s,'saludo','text');
   while(s.day<EVENTS[0].day) s=performAction(resolveFreeDecision(s),'rest');
   s={...s,members:s.members.map(member=>({...member,energy:0}))};
   return performAction(s,'compete');
@@ -617,7 +620,7 @@ test('admission exemptions are null in both public reports and archives and neve
 test('v5 migration preserves every old field and begins counters at the current year without inventing archives',()=>{
   const old={...started(),season:17};
   const v5=asV5(old),migrated=parseSave(JSON.stringify(v5))!;
-  assert.ok(migrated);assert.equal(migrated.version,6);assert.deepEqual(asV5(migrated),v5);
+  assert.ok(migrated);assert.equal(migrated.version,7);assert.deepEqual(asV5(migrated),v5);
   assert.deepEqual(migrated.identity,{name:'La Vereda',barrio:'Montevideo'});
   assert.deepEqual(migrated.history,[]);assert.deepEqual(migrated.career,{sinceSeason:17,completedSeasons:0,championships:0,finals:0});
   assert.ok(getRosterProgress(migrated).every(row=>row.experienceDelta===null));
@@ -634,13 +637,14 @@ test('only the latest 50 detailed years are retained while recorded lifetime cou
   let state=createGame();
   for(let year=1;year<=52;year++){
     state=setIdentity(state,{name:`Los Años ${year}`,barrio:'Prado'});
-    const ended=failAdmission(state);assert.equal(ended.status,'lost');assert.equal(ended.day,EVENTS[0].day);
+    const ended=failAdmission(state,true);assert.equal(ended.status,'lost');assert.equal(ended.day,EVENTS[0].day);
     state=nextSeason(ended);
     assert.equal(state.career.completedSeasons,year);
   }
   assert.equal(HISTORY_LIMIT,50);assert.equal(state.history.length,50);
   assert.equal(state.history[0].season,3);assert.equal(state.history.at(-1)!.season,52);
   assert.equal(state.history[0].identity.name,'Los Años 3');
+  assert.ok(state.history.every(entry=>entry.show?.sections[0].text===52));
   assert.deepEqual(getCareerSummary(state),{sinceSeason:1,completedSeasons:52,championships:0,finals:0,retainedSeasons:50,historyLimit:50,omittedSeasons:2});
   assert.ok(JSON.stringify(state).length<600000);save(state);
 });
@@ -667,4 +671,188 @@ test('archive validation rejects hidden member fields, inconsistent financial to
     {...state,history:[{...entry,outcome:'in-progress'}]},
   ];
   for(const value of corrupt) assert.equal(parseSave(JSON.stringify(value)),null);
+});
+
+function asV6(state:State):Record<string,unknown> {
+  const {show,...previous}=state;
+  return {...previous,version:6,history:state.history.map(entry=>{const {show,...archive}=entry;return archive;})};
+}
+function prepareSections(state:State,passes=1):State {
+  let next=state;
+  for(let pass=0;pass<passes;pass++) for(const {id} of SHOW_SECTIONS) for(const work of ['text','arrangements'] as const)
+    next=developShow(resolveFreeDecision(next),id,work);
+  return next;
+}
+
+test('show planning accepts normalized titles and known themes, is free, and locks only on successful work or rehearsal',()=>{
+  const original=createGame(),before=JSON.stringify(original);
+  assert.equal(getShowSummary(original).readiness,0);assert.equal(getShowSummary(original).canEdit,true);
+  assert.deepEqual(SHOW_SECTIONS.map(section=>section.id),['saludo','cuple','retirada']);
+  const planned=configureShow(original,{title:'  Una   Última  Voz  ',themeId:'memoria'});
+  assert.equal(planned.show.title,'Una Última Voz');assert.equal(planned.show.themeId,'memoria');assert.equal(planned.show.locked,false);
+  assert.equal(planned.day,original.day);assert.equal(planned.money,original.money);assert.equal(planned.seed,original.seed);
+  assert.deepEqual(planned.members,original.members);assert.deepEqual(planned.accounts,original.accounts);save(planned);
+  assert.deepEqual(getStats(planned),getStats(original));assert.equal(JSON.stringify(original),before);
+  for(const title of ['X','a'.repeat(61),'<b>Una voz</b>','Una\nvoz','Invisible\u202e','Una\u0000voz'])
+    assert.equal(validateShowPlan({title,themeId:'barrio'}).valid,false);
+  for(const input of [null,{},[],{title:'Una voz',themeId:'unknown'},{title:42,themeId:'barrio'}])
+    assert.equal(validateShowPlan(input).valid,false);
+  assert.equal(validateShowPlan({title:'á'.repeat(60),themeId:'satira'}).valid,true);
+  assert.deepEqual(configureShow(planned,{title:'X',themeId:'barrio'}).show,planned.show);
+  assert.deepEqual(developShow(planned,'saludo','text').show,planned.show,'rejected setup work cannot lock the plan');
+  let s=started();while(s.day<REHEARSALS_START_DAY)s=performAction(s,'rest');
+  assert.equal(s.show.locked,false);
+  s=performAction(s,'rehearse');assert.equal(s.show.locked,true);assert.equal(getShowSummary(s).canEdit,false);
+  assert.deepEqual(configureShow(s,{title:'Otro nombre',themeId:'satira'}).show,s.show);save(s);
+});
+
+test('technical development consumes one day and its exact ledger cost without artist energy, experience or seed changes',()=>{
+  const s=contactCandidate(started(),started().candidates[0].id),before=JSON.stringify(s);
+  const preview=getShowWorkAvailability(s,'saludo','text');assert.deepEqual(preview,{enabled:true,reason:'',cost:4000,gain:52});
+  const next=developShow(s,'saludo','text');
+  assert.equal(next.day,s.day+1);assert.equal(next.money,s.money-preview.cost);
+  assert.equal(next.accounts.rehearsals,s.accounts.rehearsals+preview.cost);
+  assert.deepEqual(next.members,s.members);assert.deepEqual(next.candidates,s.candidates);
+  assert.equal(next.seed,s.seed);assert.equal(next.contactsToday,0);assert.equal(next.show.sections.saludo.text,preview.gain);
+  assert.equal(next.show.locked,true);assert.equal(JSON.stringify(s),before);save(next);
+  const arranged=developShow(next,'saludo','arrangements');
+  assert.equal(arranged.day,2);assert.equal(arranged.accounts.rehearsals,9000);assert.equal(arranged.show.sections.saludo.arrangements,52);save(arranged);
+  const finished=developShow(next,'saludo','text');assert.equal(finished.show.sections.saludo.text,100);
+  assert.equal(getShowWorkAvailability(next,'saludo','text').gain,48);
+  const saturated=developShow(finished,'saludo','text');
+  assert.equal(saturated.money,finished.money);assert.equal(saturated.day,finished.day);assert.deepEqual(saturated.show,finished.show);
+  assert.equal(getShowWorkAvailability(finished,'saludo','text').enabled,false);assert.equal(getShowWorkAvailability(finished,'saludo','text').gain,0);save(finished);
+});
+
+test('show work cannot bypass setup, cash, decisions, official presentations, invalid inputs or the end of a campaign',()=>{
+  let decisionDay=started();while(decisionDay.day<7)decisionDay=performAction(decisionDay,'rest');
+  const blockedStates=[createGame(),cash(started(),0),decisionDay,win(),...EVENTS.map(event=>({...started(),day:event.day}))];
+  for(const state of blockedStates) for(const work of ['text','arrangements'] as const){
+    assert.equal(getShowWorkAvailability(state,'cuple',work).enabled,false);
+    const blocked=developShow(state,'cuple',work);
+    assert.equal(blocked.day,state.day);assert.equal(blocked.money,state.money);assert.deepEqual(blocked.show,state.show);assert.deepEqual(blocked.members,state.members);
+  }
+  for(const [section,work] of [['wrong','text'],['saludo','wrong'],['__proto__','text'],['saludo','toString']]){
+    const state=started(),blocked=developShow(state,section as ShowSectionId,work as ShowWork);
+    assert.equal(blocked.day,0);assert.deepEqual(blocked.show,state.show);
+  }
+  let approaching=started();while(approaching.day<6) approaching=performAction(approaching,'rest');
+  const arrived=developShow(approaching,'retirada','arrangements');
+  assert.equal(arrived.day,7);assert.equal(arrived.pendingDecision,getPendingDecision(arrived)!.id);save(arrived);
+  const resumed=developShow(resolveFreeDecision(arrived),'retirada','text');assert.equal(resumed.day,8);save(resumed);
+  const beforeAdmission={...started(),day:17};
+  const onAdmission=developShow(beforeAdmission,'saludo','text');
+  assert.equal(onAdmission.day,18);assert.equal(developShow(onAdmission,'saludo','text').day,18);
+});
+
+test('the contracted specialist and chosen theme affect work speed without changing price or making one theme universally faster',()=>{
+  const basic=started();
+  const expert=startSeason(hireCreative(setup(),CREATIVE_CANDIDATES.find(candidate=>candidate.role==='lyrics'&&candidate.level==='Referente')!.id));
+  assert.equal(getShowWorkAvailability(expert,'saludo','text').gain,62);
+  assert.equal(getShowWorkAvailability(basic,'saludo','text').gain,52);
+  assert.equal(getShowWorkAvailability(expert,'saludo','arrangements').gain,getShowWorkAvailability(basic,'saludo','arrangements').gain);
+  for(const theme of SHOW_THEMES){
+    const state=configureShow(basic,{title:'El nuevo espectáculo',themeId:theme.id});
+    const text=getShowWorkAvailability(state,'cuple','text'),arrangements=getShowWorkAvailability(state,'cuple','arrangements');
+    assert.equal(text.cost,4000);assert.equal(arrangements.cost,5000);assert.equal(text.gain+arrangements.gain,104);
+    if(theme.id==='memoria')assert.ok(arrangements.gain>text.gain);
+    if(theme.id==='satira')assert.ok(text.gain>arrangements.gain);
+    if(theme.id==='barrio')assert.equal(text.gain,arrangements.gain);
+  }
+});
+
+test('focused rehearsal concentrates the same potential practice, respects writing and arrangement readiness, and keeps ordinary practice effects',()=>{
+  const prepared=prepareSections(started());assert.equal(prepared.day,6);save(prepared);
+  const general=performAction(prepared,'rehearse');
+  const focused=performAction(setRehearsalFocus(prepared,'cuple'),'rehearse');
+  assert.deepEqual(Object.values(general.show.sections).map(section=>section.rehearsal),[12,12,12]);
+  assert.deepEqual(Object.values(focused.show.sections).map(section=>section.rehearsal),[0,36,0]);
+  assert.deepEqual(focused.members,general.members);assert.equal(focused.money,general.money);assert.equal(focused.day,general.day);
+  assert.equal(focused.members[0].experience,Math.round((prepared.members[0].experience+.4)*10)/10);
+  assert.equal(focused.members[0].energy,prepared.members[0].energy-8);save(general);save(focused);
+  const capped=performAction(resolveFreeDecision(focused),'rehearse');
+  assert.equal(capped.show.sections.cuple.rehearsal,61.6,'both text and arrangements52 allow20+.8*52');save(capped);
+  const nextText=developShow(capped,'cuple','text');
+  const stillCapped=performAction(nextText,'rehearse');assert.equal(stillCapped.show.sections.cuple.rehearsal,61.6,'text alone cannot lift the arrangements bottleneck');
+  const completedTextAndMusic=developShow(stillCapped,'cuple','arrangements');
+  const released=performAction(completedTextAndMusic,'rehearse');assert.equal(released.show.sections.cuple.rehearsal,97.6);save(released);
+  let empty=started();while(empty.day<6)empty=performAction(empty,'rest');
+  const safe=performAction(setRehearsalFocus(empty,'saludo'),'rehearse');assert.equal(safe.show.sections.saludo.rehearsal,20,'no new obligation prevents ordinary rehearsals');
+  const invalid=setRehearsalFocus(prepared,'unknown' as RehearsalFocus);assert.deepEqual(invalid.show,prepared.show);
+  const event=fixture(EVENTS[1].day),changed=setRehearsalFocus(event,'retirada');
+  assert.equal(changed.day,event.day);assert.equal(changed.money,event.money);assert.equal(getActionAvailability(changed,'rest').enabled,false);
+  const ended=win();assert.deepEqual(setRehearsalFocus(ended,'saludo').show,ended.show);
+});
+
+test('production progress has a bounded positive artistic effect while public summaries never expose jury scores or talent',()=>{
+  const empty=started(),complete=structuredClone(empty);
+  for(const section of Object.values(complete.show.sections))Object.assign(section,{text:100,arrangements:100,rehearsal:100});
+  complete.show.locked=true;
+  const before=getStats(empty),after=getStats(complete);
+  assert.ok(after.quality>before.quality);assert.ok(after.quality-before.quality<=3.21);
+  assert.equal(after.harmony,before.harmony);assert.equal(after.energy,before.energy);
+  const summary=getShowSummary(complete);assert.equal(summary.readiness,100);
+  assert.ok(!Object.hasOwn(summary,'projectedScore')&&!Object.hasOwn(summary,'quality'));
+  const first=performAction(fixture(EVENTS[1].day),'compete'),publicReport=getSeasonReport(first);
+  assert.equal(publicReport.rank,null);assert.equal(publicReport.contestTotal,null);assert.equal(publicReport.results[1].score,null);
+  assert.ok(publicReport.show);assert.ok(!Object.hasOwn(publicReport.show,'score'));
+  assert.deepEqual(Object.keys(publicReport.show.sections[0]).sort(),['arrangements','id','rehearsal','text']);
+  summary.sections[0].text=0;publicReport.show.sections[0].text=100;
+  assert.equal(complete.show.sections.saludo.text,100);assert.equal(first.show.sections.saludo.text,0);
+});
+
+test('v6 migration preserves a real archived year, the current career and sealed results without fabricating previous production',()=>{
+  const second=nextSeason(setIdentity(win(),{name:'Los del Andén',barrio:'Peñarol'}));
+  const old=asV6(setIdentity(second,{name:'Los del Andén Renovada',barrio:'Peñarol'}));
+  const migrated=parseSave(JSON.stringify(old));assert.ok(migrated);
+  assert.equal(migrated.version,7);assert.equal(migrated.season,2);assert.equal(migrated.history.length,1);
+  assert.deepEqual(asV6(migrated),old);assert.equal(migrated.history[0].show,null);
+  assert.equal(migrated.show.locked,false);assert.equal(getShowSummary(migrated).readiness,0);save(migrated);
+  assert.equal(migrated.history[0].identity.name,'Los del Andén');assert.equal(migrated.identity.name,'Los del Andén Renovada');
+  const beforeFallos=performAction(fixture(EVENTS[1].day),'compete'),oldActive=asV6(beforeFallos);
+  const active=parseSave(JSON.stringify(oldActive))!;assert.ok(active);assert.deepEqual(asV6(active),oldActive);
+  assert.equal(getSeasonReport(active).contestTotal,null);assert.equal(getSeasonReport(active).rank,null);
+  assert.deepEqual(getStats(active),getStats({...beforeFallos,show:createGame().show}));
+});
+
+test('all three thematic plans can reach complete production within32 periods and win without bypassing choices or events',()=>{
+  for(const theme of SHOW_THEMES){
+    let s=configureShow(setup(),{title:`Una temporada de ${theme.id}`,themeId:theme.id});
+    s=chooseCostumeProposal(s,getCostumeProposals(s)[0].id);s=startSeason(s);
+    for(let i=0;i<4;i++){s=buyUpgrade(s,'voices');s=buyUpgrade(s,'lyrics');}
+    s=prepareSections(s,2);assert.equal(s.day,12);save(s);
+    const rehearsalDays=[12,13,14,15,16,20,21,22,23];
+    while(s.status==='playing'){
+      s=resolveFreeDecision(s);
+      const action:Action=EVENTS.some(event=>event.day===s.day)?'compete':rehearsalDays.includes(s.day)?'rehearse':'rest';
+      const previousDay=s.day;s=performAction(s,action);save(s);
+      assert.ok(s.status!=='playing'||s.day===previousDay+1);
+    }
+    assert.equal(s.status,'won',`${theme.id}: ${s.lastMessage}`);assert.equal(getShowSummary(s).readiness,100);
+    assert.equal(s.results.length,4);assert.equal(s.resolvedDecisions.length,6);
+    const snapshot=getSeasonReport(s).show!,next=nextSeason(s),archived=getSeasonHistory(next)[0].show!;
+    assert.deepEqual(archived,snapshot);assert.deepEqual(next.show,createGame().show);
+    archived.sections[0].text=0;assert.equal(next.history[0].show!.sections[0].text,100);
+    const renamed=configureShow(next,{title:'Un año distinto',themeId:'barrio'});
+    renamed.history[0].show!.sections[0].arrangements=0;
+    assert.equal(next.history[0].show!.sections[0].arrangements,100);assert.equal(s.show.sections.saludo.arrangements,100);save(next);
+  }
+});
+
+test('v7 validation rejects invalid plans, impossible progress, unfunded work and leaked or inconsistent show archives',()=>{
+  const state=prepareSections(started()),next=nextSeason(win()),entry=next.history[0];
+  const corrupt:unknown[]=[
+    {...state,show:null},{...state,show:{...state.show,title:' Unnormalized '}},{...state,show:{...state.show,themeId:'new'}},
+    {...state,show:{...state.show,focus:'invalid'}},{...state,show:{...state.show,locked:false}},
+    {...state,show:{...state.show,sections:{...state.show.sections,cuple:{text:101,arrangements:52,rehearsal:0}}}},
+    {...state,show:{...state.show,sections:{...state.show.sections,cuple:{text:52,arrangements:52,rehearsal:100}}}},
+    {...state,show:{...state.show,sections:{...state.show.sections,extra:{text:0,arrangements:0,rehearsal:0}}}},
+    {...state,show:{...state.show,sections:{...state.show.sections,cuple:{text:52,arrangements:52,rehearsal:0,skill:90}}}},
+    {...state,day:0},{...state,money:state.money+state.accounts.rehearsals,accounts:{...state.accounts,rehearsals:0}},
+    {...next,history:[{...entry,show:{...entry.show,readiness:99}}]},
+    {...next,history:[{...entry,show:{...entry.show,title:'<script>'}}]},
+    {...next,history:[{...entry,show:{...entry.show,hiddenSkill:88}}]},
+    {...next,history:[{...entry,show:{...entry.show,sections:entry.show!.sections.map((section,index)=>index?section:{...section,id:'retirada'})}}]},
+  ];
+  for(const value of corrupt)assert.equal(parseSave(JSON.stringify(value)),null);
 });

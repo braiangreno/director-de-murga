@@ -1,8 +1,56 @@
 # Director de Murga
 
-Documento de diseño del prototipo. La revisión vigente es **v6, del 1 de octubre de 2026**: añade identidad e historial de carrera a los sistemas comunitarios de v5, que se conservan. Las secciones v4 y v3 son antecedentes; sus versiones, calendarios y tareas pendientes no sustituyen el estado actual. Los valores concretos de balance están en `src/simulation.ts`. Esta actualización documental no acredita nuevas pruebas de navegador ni una compilación o ejecución nativa de v6.
+Documento de diseño del prototipo. La revisión vigente es **v7, del 7 de octubre de 2026**: añade la creación y preparación del espectáculo a la identidad y trayectoria de v6 y la vida comunitaria de v5. Las secciones v4 y v3 son antecedentes; sus versiones, calendarios y tareas pendientes no sustituyen el estado actual. Los valores concretos de balance están en `src/simulation.ts`. Esta actualización documental no acredita nuevas pruebas de navegador ni una compilación o ejecución nativa de v7.
 
-## Revisión vigente v6: identidad y trayectoria
+## Revisión vigente v7: crear el espectáculo
+
+### Título, tema y tres partes
+
+`State.show` guarda el título, tema, foco de ensayo, estado de bloqueo y progreso de saludo, cuplé y retirada. Cada parte registra tres avances de 0 a 100: **texto, arreglos e interpretación ensayada**. Esta división es una simplificación del videojuego, no un formato obligatorio para todas las murgas.
+
+El título admite de 2 a 60 caracteres normalizados, sin etiquetas ni controles. La propuesta inicial es **«Una voz en la esquina»**. Las tres temáticas son ficticias:
+
+| Tema | Propuesta | Afinidad de desarrollo |
+| --- | --- | --- |
+| Barrio | La esquina y su gente | Avance equilibrado de texto y arreglos. |
+| Memoria | Las voces que vuelven | Mayor afinidad con arreglos corales. |
+| Sátira | El ministerio del disparate | Mayor afinidad con escritura. |
+
+`configureShow` permite guardar el plan sin gastar dinero ni avanzar el calendario. El **primer desarrollo técnico o ensayo realizado** confirma el título y el tema para esa temporada. Una tarea bloqueada o rechazada no los fija. El foco de ensayo se puede cambiar después; una temporada terminada no admite cambios de planificación ni nuevo trabajo.
+
+### Trabajo técnico y ensayo
+
+`developShow` trabaja texto o arreglos de una parte. Requiere los cinco puestos técnicos contratados y producción iniciada, caja suficiente y una jornada disponible. Una decisión pendiente o una presentación oficial impiden adelantar trabajo por esta vía. Se puede desarrollar antes de julio; los ensayos del elenco mantienen su apertura desde julio.
+
+| Actividad | Costo de balance | Tiempo | Efecto |
+| --- | --- | --- | --- |
+| Desarrollar texto de una parte | UYU 4.000 | Una jornada | Aumenta su texto según letrista y afinidad temática. |
+| Trabajar arreglos de una parte | UYU 5.000 | Una jornada | Aumenta sus arreglos según arreglador y afinidad temática. |
+| Ensayar, con foco general o individual | UYU 6.000 | Una jornada | Aumenta la interpretación preparada y mantiene los efectos habituales de práctica, experiencia y cansancio del elenco. |
+
+Los importes son parámetros del juego, no tarifas actuales de técnicos o locales. El trabajo técnico no produce práctica, experiencia ni desgaste del elenco; su costo se registra una vez en `accounts.rehearsals`, bajo el rubro **Trabajo creativo, ensayos y logística**. No sustituye los honorarios de contratación ni cobra una mejora de nivel adicional.
+
+El balance de desarrollo usa **50 puntos base**, más **0, 5 o 10** según el perfil técnico contratado. Barrio añade 2 tanto a texto como a arreglos; memoria añade 4 a arreglos y sátira 4 a texto. Cada operación se limita al avance restante hasta 100, y una tarea completa queda deshabilitada.
+
+`setRehearsalFocus` elige repaso general o una parte sin gastar recursos ni jornada. Un ensayo general suma **hasta 12** a cada parte; uno enfocado suma **hasta 36** a la elegida. La interpretación de cada sección tiene un techo de `20 + 0,8 × min(texto, arreglos)`: ensayar sin suficiente material llega a un límite, aunque la práctica general del elenco continúe. Ese techo y los topes de 100 reducen el incremento efectivo cuando corresponde.
+
+### Avance visible y efecto acotado
+
+`getShowSummary` muestra plan, foco y los nueve avances. El indicador conjunto es su promedio, redondeado a un decimal. Describe trabajo acumulado; no es una nota del jurado ni una medición exacta de la capacidad de las personas.
+
+Los arreglos y ensayos pueden aportar **hasta +4 al valor interno de voces** y el texto **hasta +4 al de textos**, antes de las ponderaciones y límites habituales. No equivalen a ocho puntos de concurso garantizados ni modifican resultados ya registrados. Permanecen vigentes el cansancio, la armonía, los aportes técnicos y el resto de la preparación. Elegir sátira, memoria o barrio no expresa una preferencia política del jurado.
+
+Las tareas representan gestión creativa. No generan letras reales, melodías, grabaciones ni nuevas prendas. El vestuario continúa con sus dos propuestas contratadas y su propia confección.
+
+### Archivo y guardado v7
+
+La clave activa es `director-de-murga-v7`. El título, tema, foco, bloqueo y avances sobreviven a la recarga. Al pasar de año se copia al cierre un `ShowSnapshot` con título, tema, avance total y las tres secciones; no comparte objetos mutables con el espectáculo siguiente. El plan del nuevo año vuelve a la propuesta inicial, foco general, sin bloqueo y con los nueve avances en cero.
+
+La migración **v6 → v7** conserva identidad, carrera, elenco, candidatos, cuentas, decisiones, resultados y el resto de la partida. Añade el espectáculo inicial sin atribuirle trabajo que v6 no registraba. Los archivos anteriores reciben **`show: null`**, presentado como falta de registro, no como preparación cero de aquel año ni pérdida de su historia. Las notas ya obtenidas no se recalculan por migrar.
+
+Los nuevos archivos mantienen la publicación de resultados y el límite de 50 cierres definidos en v6. La migración no suma financiación, no cobra técnicos y no reinicia la temporada. Las claves anteriores permanecen respaldadas y las apariencias siguen en su guardado independiente.
+
+## Base funcional v6 conservada en v7: identidad y trayectoria
 
 ### Una murga con nombre propio
 
@@ -33,15 +81,15 @@ Cada entrada conserva los siguientes datos:
 
 Los ingresos de actividad incluyen actuaciones, aportes barriales y premios del juego. Los gastos agrupan contratos, confección, audiciones, mejoras, ensayo, actuaciones y convivencia. **`accounts.opening` queda fuera de ingresos operativos y gastos**: identifica capital inicial o financiación más remanente, no dinero ganado actuando. La caja de cierre y el resultado operativo se muestran como conceptos diferentes. Estos cálculos son contabilidad simplificada del juego, sin introducir tarifas reales nuevas.
 
-### Guardado v6 y continuidad
+### Identidad y continuidad incorporadas en v6
 
-La clave activa es `director-de-murga-v6`. El esquema añade `identity`, `history` y contadores de carrera con `sinceSeason`, junto a los campos de v5. El archivo guarda copias independientes y se incorpora una sola vez al cierre. La interfaz consume las APIs públicas, que no exponen capacidades artísticas ocultas; el guardado local completo sigue conteniendo los datos internos necesarios para la simulación.
+La clave histórica `director-de-murga-v6` introdujo `identity`, `history` y contadores de carrera con `sinceSeason`, conservados ahora en v7 junto a los campos de v5. El archivo guarda copias independientes y se incorpora una sola vez al cierre. La interfaz consume las APIs públicas, que no exponen capacidades artísticas ocultas; el guardado local completo sigue conteniendo los datos internos necesarios para la simulación.
 
 La migración **v5 → v6** conserva los datos anteriores y agrega identidad inicial, historial vacío y contadores desde la temporada en curso. No deduce campeonatos pasados ni inventa planteles, balances o progresos que el guardado antiguo no registró. El primer cierre posterior a la actualización inicia el archivo real. Las comparaciones sin referencia siguen siendo desconocidas.
 
 Las claves anteriores quedan respaldadas. Las migraciones más antiguas conservan sus pasos previos: **v4 → v5** incorpora comunidad sin cambiar dinero; **v3 → v4** contiene la conversión histórica de calendario y economía documentada más abajo. Ninguno de esos ajustes debe atribuirse al cambio directo de v5 a v6. Las apariencias mantienen su clave separada y los mismos IDs.
 
-## Base funcional v5 conservada en v6: la vida de la murga
+## Base funcional v5 conservada en v7: la vida de la murga
 
 La campaña conserva el armado de abril, 32 jornadas representativas, 120 candidatos persistentes y un elenco de 17 integrantes. El mercado abre hasta terminar septiembre; se ensaya desde julio, la admisión ocurre en noviembre y el circuito de tablados empieza a fines de enero. Son fechas comprimidas de esta simulación. Las cinco contrataciones técnicas, la economía en UYU, las carreras entre temporadas y las propuestas de vestuario introducidas en v4 siguen vigentes.
 
@@ -74,7 +122,7 @@ Son situaciones ficticias con consecuencias de balance; no sanciones oficiales n
 
 La libreta de caja incorpora `communityIncome` y `communityCosts`: recaudación de festivales por un lado, organización, encuentros y opciones pagadas por otro. Estos movimientos participan en el mismo balance que contratos, confección, ensayos y actuaciones; no son premios externos a la contabilidad.
 
-Estos campos fueron introducidos en **v5**, con clave histórica `director-de-murga-v5`, y ahora se conservan dentro del guardado v6: ánimo, vínculos, última conversación de cada persona, cuota diaria, festivales utilizados, decisión pendiente e historial de decisiones. La resolución y sus efectos forman un único estado guardado; volver a cargar o pulsar de nuevo una opción ya resuelta no repite sus efectos. El elenco y los candidatos conservan sus campos al intercambiar una plaza.
+Estos campos fueron introducidos en **v5**, con clave histórica `director-de-murga-v5`, y ahora se conservan dentro del guardado v7: ánimo, vínculos, última conversación de cada persona, cuota diaria, festivales utilizados, decisión pendiente e historial de decisiones. La resolución y sus efectos forman un único estado guardado; volver a cargar o pulsar de nuevo una opción ya resuelta no repite sus efectos. El elenco y los candidatos conservan sus campos al intercambiar una plaza.
 
 La migración **v4 → v5** mantiene dinero, carreras, resultados y partidas contables anteriores. Inicializa los campos comunitarios y marca eventos pasados como anteriores a esta actualización, sin aplicar recompensas retroactivas. Si corresponde un evento a la jornada actual, se presenta pendiente. La migración **v3 → v4 → v5** conserva primero la conversión histórica de calendario y economía, incluida su financiación de transición; no confundir ese ajuste con la migración directa desde v4. Las claves anteriores se respaldan y un guardado activo inválido se copia a una clave de recuperación.
 
@@ -102,7 +150,7 @@ Evidencia, fechas, precios históricos y límites: [ECONOMIA-Y-CARRERAS-FUENTES.
 
 ## Antecedente v3: especificación histórica
 
-**Archivo de diseño:** las secciones restantes conservan propuestas y límites de v3. El calendario, las funciones y el guardado vigentes están descritos arriba en v6 y su base funcional v5.
+**Archivo de diseño:** las secciones restantes conservan propuestas y límites de v3. El calendario, las funciones y el guardado vigentes están descritos arriba en v7 y sus bases funcionales v6 y v5.
 
 ## Propuesta
 
