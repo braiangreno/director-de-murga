@@ -13,6 +13,7 @@ import {
   SHOW_THEMES,SHOW_SECTIONS,validateShowPlan,configureShow,setRehearsalFocus,developShow,getShowSummary,getShowWorkAvailability,
   type ShowSectionId,type ShowWork,type RehearsalFocus,
   getRenewalQuote,getRenewalSummary,renewMember,renewAllWilling,contactMember,getContractReserve,
+  CIRCUIT_VENUES,getCircuitForecast,getCircuitAvailability,getCircuitPreview,setCircuitPlan,cancelCircuitPlan,performCircuit,
   type State,type Action,type Member,
 } from './simulation';
 
@@ -24,7 +25,7 @@ function setup(seed=2026):State {
 function started(seed=2026):State {return startSeason(setup(seed));}
 function save(state:State):void {assert.deepEqual(parseSave(JSON.stringify(state)),state,state.lastMessage);}
 function toV4(state:State):Record<string,unknown> {
-  const {contactsToday,fundraisersUsed,pendingDecision,resolvedDecisions,decisionHistory,show,pendingRenewals,...old}=state;
+  const {contactsToday,fundraisersUsed,pendingDecision,resolvedDecisions,decisionHistory,show,pendingRenewals,circuit,...old}=state;
   const {communityIncome,communityCosts,...accounts}=state.accounts;
   const oldMember=(member:Member)=>{const {morale,rapport,lastContactDay,...rest}=member;return rest;};
   return {...old,version:4,accounts,members:state.members.map(oldMember),candidates:state.candidates.map(oldMember)};
@@ -278,7 +279,7 @@ test('role practice, voice arrangement and energy influence artistic evaluation;
 test('v3 migration preserves identities, ability, saved performances and jury ballots, with one explicit financing adjustment',()=>{
   for(const active of [false,true]){
     const v3=legacyV3(0,active),migrated=parseSave(JSON.stringify(v3))!;
-    assert.ok(migrated);assert.equal(migrated.version,8);assert.equal(migrated.money,230000+880000);
+    assert.ok(migrated);assert.equal(migrated.version,9);assert.equal(migrated.money,230000+880000);
     assert.equal(migrated.day,active?15:0);assert.equal(migrated.candidates.length,120);
     assert.deepEqual(migrated.members.map(m=>[m.id,m.voice,m.skill,m.assignedCord]),(v3.members as Member[]).map(m=>[m.id,m.voice,m.skill,m.assignedCord]));
     assert.match(migrated.log[0],/880.000/);save(migrated);
@@ -447,7 +448,7 @@ test('v4 migration retains all old fields, activates only the current decision a
   for(const day of [0,7,8,13]){
     const v4=toV4({...started(),day});
     const migrated=parseSave(JSON.stringify(v4))!;
-    assert.ok(migrated);assert.equal(migrated.version,8);assert.deepEqual(toV4(migrated),v4);
+    assert.ok(migrated);assert.equal(migrated.version,9);assert.deepEqual(toV4(migrated),v4);
     assert.equal(migrated.accounts.communityIncome,0);assert.equal(migrated.accounts.communityCosts,0);
     assert.equal(migrated.contactsToday,0);assert.equal(migrated.fundraisersUsed,0);
     assert.ok(migrated.members.every(member=>member.morale===70&&member.lastContactDay===-1));
@@ -486,7 +487,7 @@ test('v5 validation rejects forged contact counters, missing decisions, repeated
 
 
 function asV5(state:State):Record<string,unknown> {
-  const {identity,history,career,show,pendingRenewals,...previous}=state;
+  const {identity,history,career,show,pendingRenewals,circuit,...previous}=state;
   return {...previous,version:5};
 }
 function failAdmission(state:State,develop=false):State {
@@ -632,7 +633,7 @@ test('admission exemptions are null in both public reports and archives and neve
 test('v5 migration preserves every old field and begins counters at the current year without inventing archives',()=>{
   const old={...started(),season:17};
   const v5=asV5(old),migrated=parseSave(JSON.stringify(v5))!;
-  assert.ok(migrated);assert.equal(migrated.version,8);assert.deepEqual(asV5(migrated),v5);
+  assert.ok(migrated);assert.equal(migrated.version,9);assert.deepEqual(asV5(migrated),v5);
   assert.deepEqual(migrated.identity,{name:'La Vereda',barrio:'Montevideo'});
   assert.deepEqual(migrated.history,[]);assert.deepEqual(migrated.career,{sinceSeason:17,completedSeasons:0,championships:0,finals:0});
   assert.ok(getRosterProgress(migrated).every(row=>row.experienceDelta===null));
@@ -686,7 +687,7 @@ test('archive validation rejects hidden member fields, inconsistent financial to
 });
 
 function asV6(state:State):Record<string,unknown> {
-  const {show,pendingRenewals,...previous}=state;
+  const {show,pendingRenewals,circuit,...previous}=state;
   return {...previous,version:6,history:state.history.map(entry=>{const {show,...archive}=entry;return archive;})};
 }
 function prepareSections(state:State,passes=1):State {
@@ -817,7 +818,7 @@ test('v6 migration preserves a real archived year, the current career and sealed
   const second=nextSeason(setIdentity(win(),{name:'Los del Andén',barrio:'Peñarol'}));
   const old=asV6(setIdentity(second,{name:'Los del Andén Renovada',barrio:'Peñarol'}));
   const migrated=parseSave(JSON.stringify(old));assert.ok(migrated);
-  assert.equal(migrated.version,8);assert.equal(migrated.season,2);assert.equal(migrated.history.length,1);
+  assert.equal(migrated.version,9);assert.equal(migrated.season,2);assert.equal(migrated.history.length,1);
   assert.deepEqual(asV6(migrated),old);assert.equal(migrated.history[0].show,null);
   assert.equal(migrated.show.locked,false);assert.equal(getShowSummary(migrated).readiness,0);save(migrated);
   assert.equal(migrated.history[0].identity.name,'Los del Andén');assert.equal(migrated.identity.name,'Los del Andén Renovada');
@@ -870,13 +871,13 @@ test('v7 validation rejects invalid plans, impossible progress, unfunded work an
 });
 
 function asV7(state:State):Record<string,unknown> {
-  const {pendingRenewals,...previous}=state;
+  const {pendingRenewals,circuit,...previous}=state;
   return {...previous,version:7};
 }
 
 test('annual closure funds the new year without paying or renewing contracts and preserves the completed archive before growth',()=>{
   const ended=win(),original=JSON.stringify(ended),next=nextSeason(ended);
-  assert.equal(next.version,8);assert.equal(next.accounts.recruitment,0);assert.equal(next.money,ended.money+SEASON_FINANCING);
+  assert.equal(next.version,9);assert.equal(next.accounts.recruitment,0);assert.equal(next.money,ended.money+SEASON_FINANCING);
   assert.deepEqual(next.pendingRenewals,ended.members.map(member=>member.id));
   assert.deepEqual(getRenewalSummary(next),{pending:17,signed:0,total:17,estimatedCost:getSeasonRenewalCost(ended)});
   assert.equal(next.history[0].cash,ended.money);assert.deepEqual(next.history[0].accounts,ended.accounts);
@@ -992,7 +993,7 @@ test('v7 migration keeps already paid contracts, progress, archives and cash int
   const renewed=renewAllWilling(nextSeason(win()));
   for(const current of [createGame(),renewed,performAction(fixture(EVENTS[1].day),'compete'),win()]){
     const old=asV7(current),loaded=parseSave(JSON.stringify(old));assert.ok(loaded);
-    assert.equal(loaded.version,8);assert.deepEqual(loaded.pendingRenewals,[]);assert.deepEqual(asV7(loaded),old);
+    assert.equal(loaded.version,9);assert.deepEqual(loaded.pendingRenewals,[]);assert.deepEqual(asV7(loaded),old);
     assert.equal(getRenewalSummary(loaded).signed,17);assert.equal(getRenewalSummary(loaded).pending,0);
     assert.equal(renewAllWilling(loaded).money,loaded.money);assert.equal(renewMember(loaded,loaded.members[0].id).money,loaded.money);save(loaded);
   }
@@ -1077,4 +1078,143 @@ test('technical and costume refunds remain available under the reserve while new
   const insufficient=cash(cheaper,getContractReserve(cheaper).cost+100000);
   const blocked=chooseCostumeProposal(insufficient,getCostumeProposals(insufficient)[1].id);
   assert.equal(blocked.money,insufficient.money);assert.equal(blocked.costumeProposalId,insufficient.costumeProposalId);assert.match(blocked.lastMessage,/reservar/);
+});
+
+const MIXED_ROUTE=['plaza-candil','azotea-sur','ronda-este'];
+function asV8(state:State):Record<string,unknown> {
+  const {circuit,...previous}=state;return {...previous,version:8};
+}
+
+test('circuit routes validate1–3 chronological unique venues including travel and times after midnight',()=>{
+  const state=fixture(24);assert.equal(CIRCUIT_VENUES.length,6);
+  const mixed=getCircuitPreview(state,MIXED_ROUTE);
+  assert.equal(mixed.valid,true);assert.deepEqual(mixed.stops.map(stop=>stop.travelMinutes),[20,45,45]);
+  assert.equal(mixed.gross,61000);assert.equal(mixed.memberFees,45900);assert.equal(mixed.transport,11700);assert.equal(mixed.net,3400);
+  assert.equal(mixed.requiredCash,800,'even a profitable route needs cash for an initial popular stop');
+  const late=getCircuitPreview(state,['ronda-este','parque-luces']);assert.equal(late.valid,true);
+  assert.equal(late.stops[1].startMinute,1470);assert.equal(late.stops[1].travelMinutes,20);
+  const reversed=setCircuitPlan(state,['club-horizonte','plaza-candil']);
+  assert.deepEqual(reversed.circuit.plan,['plaza-candil','club-horizonte']);save(reversed);
+  assert.deepEqual(getCircuitPreview(state,[...MIXED_ROUTE].reverse()),mixed);
+  for(const route of [[],['unknown'],['plaza-candil','plaza-candil'],
+    ['plaza-candil','patio-puente'],['plaza-candil','club-horizonte','ronda-este','parque-luces']]){
+    assert.equal(getCircuitPreview(state,route).valid,false,route.join(','));
+    if(route.length)assert.deepEqual(setCircuitPlan(state,route).circuit,state.circuit);
+  }
+  assert.equal(getCircuitPreview(createGame(),MIXED_ROUTE).valid,true,'valid is structural, not an availability or affordability flag');
+  mixed.stops[0].energy.chorister=-99;assert.equal(CIRCUIT_VENUES[0].energy.chorister,-5);
+});
+
+test('circuit planning is free and persistent, can inspect an unaffordable route, and clears on cancellation or another advancing action',()=>{
+  const state=cash(fixture(24),0),before=JSON.stringify(state),ids=[...MIXED_ROUTE];
+  const planned=setCircuitPlan(state,ids);ids.pop();
+  assert.deepEqual(planned.circuit.plan,MIXED_ROUTE);assert.equal(planned.day,state.day);assert.equal(planned.money,state.money);
+  assert.equal(planned.seed,state.seed);assert.deepEqual(planned.members,state.members);assert.equal(JSON.stringify(state),before);save(planned);
+  const refused=performCircuit(planned);assert.equal(refused.money,planned.money);assert.equal(refused.day,planned.day);assert.deepEqual(refused.circuit,planned.circuit);
+  const cancelled=cancelCircuitPlan(planned);assert.deepEqual(cancelled.circuit.plan,[]);assert.equal(cancelled.day,24);assert.equal(cancelled.money,0);save(cancelled);
+  const rested=performAction(planned,'rest');assert.equal(rested.day,25);assert.deepEqual(rested.circuit.plan,[]);save(rested);
+  const completed=win();assert.deepEqual(cancelCircuitPlan(completed).circuit.plan,[]);assert.equal(cancelCircuitPlan(completed).money,completed.money);
+});
+
+test('circuit execution cannot bypass admission, official events, community decisions, setup or ended campaigns',()=>{
+  const cases=[createGame(),started(),{...started(),day:18},fixture(25),fixture(28,[70]),fixture(31,[70,70]),fixture(27,[70]),win()];
+  for(const state of cases){
+    assert.equal(getCircuitAvailability(state).enabled,false);
+    const planned=setCircuitPlan(state,MIXED_ROUTE);assert.deepEqual(planned.circuit.plan,state.circuit.plan);
+    const attempted=performCircuit({...state,circuit:{...state.circuit,plan:[...MIXED_ROUTE]}});
+    assert.equal(attempted.day,state.day);assert.equal(attempted.money,state.money);assert.deepEqual(attempted.members,state.members);assert.equal(attempted.circuit.history.length,0);
+  }
+  const resolved=resolveFreeDecision(fixture(27,[70]));assert.equal(getCircuitAvailability(resolved).enabled,true);
+});
+
+test('one, two and three dry performances apply actual fees, role energy, experience and fans exactly once',()=>{
+  for(const ids of [['plaza-candil'],['patio-puente','azotea-sur'],MIXED_ROUTE]){
+    const state=setCircuitPlan(fixture(24),ids),before=JSON.stringify(state),preview=getCircuitPreview(state),next=performCircuit(state);
+    assert.equal(next.day,state.day+1);assert.equal(next.circuit.history.length,1);assert.deepEqual(next.circuit.plan,[]);
+    assert.equal(next.money,state.money+preview.net);assert.equal(next.accounts.performanceIncome,preview.gross);
+    assert.equal(next.accounts.performanceCosts,preview.memberFees+preview.transport);assert.equal(next.seed,state.seed);
+    assert.equal(next.fans,state.fans+preview.stops.reduce((sum,venue)=>sum+venue.fans,0));
+    for(let index=0;index<17;index++){
+      const beforeMember=state.members[index],member=next.members[index],role=member.role==='chorister'||member.role==='director'?member.role:'percussion';
+      assert.equal(member.energy,Math.max(0,beforeMember.energy+preview.stops.reduce((sum,venue)=>sum+venue.energy[role],0)));
+      assert.equal(member.experience,Math.round((beforeMember.experience+ids.length*.3)*10)/10);
+      assert.equal(member.participation,beforeMember.participation+1);
+    }
+    assert.equal(JSON.stringify(state),before);assert.ok(next.circuit.history[0].stops.every(stop=>stop.status==='performed'));save(next);
+  }
+});
+
+test('unstable weather is deterministic and requires cash for the worst subset even when the full route earns money',()=>{
+  const state=fixture(26,[70]),preview=getCircuitPreview(state,MIXED_ROUTE);
+  assert.equal(getCircuitForecast(state).condition,'unstable');assert.equal(preview.net,3400);assert.equal(preview.requiredCash,2200);
+  const poor=setCircuitPlan(cash(state,2199),MIXED_ROUTE),refused=performCircuit(poor);
+  assert.equal(refused.day,26);assert.equal(refused.money,2199);assert.equal(refused.circuit.history.length,0);
+  const funded=setCircuitPlan(cash(state,2200),MIXED_ROUTE),next=performCircuit(funded),night=next.circuit.history[0];
+  assert.equal(next.money,0);assert.equal(next.day,27);assert.equal(night.net,-2200);
+  assert.deepEqual(night.stops.map(stop=>stop.status),['performed','cancelled','performed']);
+  assert.deepEqual(night.stops[1],{venueId:'azotea-sur',status:'cancelled',gross:0,memberFees:0,transport:0});
+  assert.equal(night.transport,7600);assert.equal(night.gross,36000);assert.equal(night.memberFees,30600);
+  assert.equal(next.members[0].energy,funded.members[0].energy-10);assert.equal(next.members[0].experience,Math.round((funded.members[0].experience+.6)*10)/10);
+  assert.deepEqual(performCircuit(parseSave(JSON.stringify(funded))!),next);
+  assert.deepEqual(getCircuitForecast({...state,seed:123456} as State),getCircuitForecast(state));
+  assert.deepEqual(performCircuit({...funded,seed:9876}).circuit.history,next.circuit.history);save(next);
+});
+
+test('rain cancels every open-air stop before departure without any payment or effort but consumes exactly one period',()=>{
+  const state=resolveFreeDecision(fixture(27,[70]));assert.equal(getCircuitForecast(state).condition,'rain');
+  const planned=setCircuitPlan(cash(state,0),MIXED_ROUTE),preview=getCircuitPreview(planned),next=performCircuit(planned);
+  assert.equal(preview.requiredCash,0);assert.equal(next.day,28);assert.equal(next.money,0);assert.equal(next.seed,planned.seed);
+  assert.deepEqual(next.members,planned.members);assert.equal(next.fans,planned.fans);
+  assert.deepEqual(next.accounts,planned.accounts);assert.equal(next.circuit.history.length,1);
+  assert.ok(next.circuit.history[0].stops.every(stop=>stop.status==='cancelled'&&stop.gross===0&&stop.memberFees===0&&stop.transport===0));
+  assert.equal(next.circuit.history[0].net,0);save(next);
+});
+
+test('legacy tablado actions execute the same legal preset engine and previews as a manually planned circuit',()=>{
+  for(const [action,ids] of [['popular',['plaza-candil','club-horizonte']],['commercial',['patio-puente','azotea-sur']]] as const){
+    for(const day of [24,26,27]){
+      const state=resolveFreeDecision(fixture(day,day>25?[70]:[])),preview=getCircuitPreview(state,ids),legacyPreview=getActionPreview(state,action);
+      assert.equal(legacyPreview.money,preview.net);assert.equal(legacyPreview.energy,preview.energy);
+      const shortcut=performAction(state,action),manual=performCircuit(setCircuitPlan(state,[...ids]));
+      assert.equal(shortcut.money,manual.money);assert.deepEqual(shortcut.members,manual.members);assert.deepEqual(shortcut.accounts,manual.accounts);
+      assert.deepEqual(shortcut.circuit,manual.circuit);assert.equal(shortcut.day,manual.day);save(shortcut);
+    }
+  }
+});
+
+test('v8 migration preserves performance ledgers without invented nights and annual closure archives totals before resetting the circuit',()=>{
+  const performed=performCircuit(setCircuitPlan(fixture(24),MIXED_ROUTE)),old=asV8(performed),loaded=parseSave(JSON.stringify(old));assert.ok(loaded);
+  assert.equal(loaded.version,9);assert.deepEqual(asV8(loaded),old);
+  assert.deepEqual(loaded.circuit,{plan:[],history:[],legacyIncome:performed.accounts.performanceIncome,legacyCosts:performed.accounts.performanceCosts});save(loaded);
+  const later=resolveFreeDecision(fixture(29,[70,70]));
+  // Retain the earlier real night while building a valid late-carnival fixture.
+  later.circuit=structuredClone(performed.circuit);later.accounts={...later.accounts,performanceIncome:performed.accounts.performanceIncome,performanceCosts:performed.accounts.performanceCosts};
+  later.money+=performed.accounts.performanceIncome-performed.accounts.performanceCosts;
+  let ended=performCircuit(setCircuitPlan(later,['parque-luces']));
+  ended=performAction(resolveFreeDecision(ended),'rest');ended=performAction(ended,'compete');assert.notEqual(ended.status,'playing');save(ended);
+  const next=nextSeason(ended);assert.deepEqual(next.circuit,{plan:[],history:[],legacyIncome:0,legacyCosts:0});
+  assert.equal(next.history.at(-1)!.accounts.performanceIncome,ended.accounts.performanceIncome);
+  assert.equal(next.history.at(-1)!.accounts.performanceCosts,ended.accounts.performanceCosts);save(next);
+  const changed=setIdentity(ended,{name:'La Otra Ronda',barrio:'Prado'});changed.circuit.history[0].stops[0].gross=0;
+  assert.notEqual(ended.circuit.history[0].stops[0].gross,0);
+});
+
+test('v9 validation rejects forged days, duplicate nights, impossible routes, changed weather, cancellation expenses and inconsistent ledgers',()=>{
+  const state=performCircuit(setCircuitPlan(fixture(26,[70]),MIXED_ROUTE)),night=state.circuit.history[0];
+  const corrupt:unknown[]=[
+    {...state,circuit:null},{...state,circuit:{...state.circuit,legacyCosts:-1}},
+    {...state,circuit:{...state.circuit,legacyIncome:1}},
+    {...state,circuit:{...state.circuit,history:[night,night]}},
+    {...state,circuit:{...state.circuit,history:[{...night,day:25}]}},
+    {...state,circuit:{...state.circuit,history:[{...night,day:state.day}]}},
+    {...state,circuit:{...state.circuit,history:[{...night,forecast:'dry'}]}},
+    {...state,circuit:{...state.circuit,history:[{...night,net:0}]}},
+    {...state,circuit:{...state.circuit,history:[{...night,stops:night.stops.map((stop,index)=>index===1?{...stop,transport:3500}:stop)}]}},
+    {...state,circuit:{...state.circuit,history:[{...night,stops:[night.stops[0],night.stops[0]]}]}},
+    {...state,circuit:{...state.circuit,history:[{...night,stops:[night.stops[2],night.stops[0]]}]}},
+    {...state,circuit:{...state.circuit,plan:['unknown']}},
+    {...createGame(),circuit:{...createGame().circuit,plan:[...MIXED_ROUTE]}},
+    {...fixture(25),circuit:{...fixture(25).circuit,plan:[...MIXED_ROUTE]}},
+  ];
+  for(const value of corrupt)assert.equal(parseSave(JSON.stringify(value)),null);
 });

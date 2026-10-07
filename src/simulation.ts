@@ -22,6 +22,28 @@ export interface ShowSnapshot {
   title: string; themeId: string; themeName: string; readiness: number;
   sections: (ShowSectionProgress & {id: ShowSectionId})[];
 }
+export type CircuitWeather = 'dry' | 'unstable' | 'rain';
+export interface CircuitVenue {
+  id:string;name:string;kind:'popular'|'commercial';zone:string;startMinute:number;duration:number;fee:number;fans:number;
+  energy:{chorister:number;percussion:number;director:number};
+}
+export interface CircuitForecast {condition:CircuitWeather;label:string;description:string;}
+export interface CircuitNight {
+  day:number;forecast:CircuitWeather;
+  stops:{venueId:string;status:'performed'|'cancelled';gross:number;memberFees:number;transport:number}[];
+  gross:number;memberFees:number;transport:number;net:number;
+}
+export interface CircuitState {plan:string[];history:CircuitNight[];legacyIncome:number;legacyCosts:number;}
+/** Fictional open-air venues, times and prices. Minutes after midnight continue above1440. */
+export const CIRCUIT_VENUES:CircuitVenue[]=[
+  {id:'plaza-candil',name:'Plaza del Candil',kind:'popular',zone:'Oeste',startMinute:1200,duration:40,fee:18000,fans:13,energy:{chorister:-5,percussion:-6,director:-4}},
+  {id:'patio-puente',name:'Patio del Puente',kind:'commercial',zone:'Centro',startMinute:1215,duration:40,fee:25000,fans:6,energy:{chorister:-11,percussion:-9,director:-7}},
+  {id:'club-horizonte',name:'Club Horizonte',kind:'popular',zone:'Oeste',startMinute:1280,duration:40,fee:18000,fans:12,energy:{chorister:-5,percussion:-6,director:-4}},
+  {id:'azotea-sur',name:'Azotea del Sur',kind:'commercial',zone:'Centro',startMinute:1295,duration:40,fee:25000,fans:6,energy:{chorister:-11,percussion:-9,director:-7}},
+  {id:'ronda-este',name:'Ronda del Este',kind:'popular',zone:'Este',startMinute:1380,duration:40,fee:18000,fans:14,energy:{chorister:-5,percussion:-6,director:-4}},
+  {id:'parque-luces',name:'Parque de las Luces',kind:'commercial',zone:'Este',startMinute:1470,duration:40,fee:25000,fans:8,energy:{chorister:-11,percussion:-9,director:-7}},
+];
+const CIRCUIT_PRESETS={popular:['plaza-candil','club-horizonte'],commercial:['patio-puente','azotea-sur']} as const;
 export const SHOW_THEMES = [
   {id:'barrio',name:'La esquina y su gente',description:'Un barrio imaginario busca cómo escucharse. Desarrollo equilibrado de textos y arreglos.'},
   {id:'memoria',name:'Las voces que vuelven',description:'Recuerdos ficticios pasan de una generación a otra. Afinidad con el desarrollo coral.'},
@@ -82,7 +104,7 @@ export const OUTCOME_LABELS: Record<SeasonOutcome | 'in-progress', string> = {
 };
 
 export interface State {
-  version: 8; identity: MurgaIdentity; history: SeasonArchive[]; career: CareerCounters; show: ShowState;
+  version: 9; identity: MurgaIdentity; history: SeasonArchive[]; career: CareerCounters; show: ShowState; circuit:CircuitState;
   pendingRenewals: string[];
   season: number; day: number; money: number; fans: number; reputation: number;
   productionStarted: boolean; admissionExempt: boolean; creativeTeam: Record<CreativeRole, string | null>;
@@ -167,6 +189,10 @@ function cloneShow(show:ShowState):ShowState {
 function cloneShowSnapshot(show:ShowSnapshot|null):ShowSnapshot|null {
   return show?{...show,sections:show.sections.map(section=>({...section}))}:null;
 }
+function emptyCircuit():CircuitState {return {plan:[],history:[],legacyIncome:0,legacyCosts:0};}
+function cloneCircuit(circuit:CircuitState):CircuitState {
+  return {...circuit,plan:[...circuit.plan],history:circuit.history.map(night=>({...night,stops:night.stops.map(stop=>({...stop}))}))};
+}
 function showReadiness(sections:ShowSectionProgress[]):number {
   return round(average(sections.map(section=>(section.text+section.arrangements+section.rehearsal)/3)));
 }
@@ -179,7 +205,7 @@ function rehearsalLimit(section:ShowSectionProgress):number { return round(20+.8
 
 
 function copy(state:State):State {
-  return {...state,identity:{...state.identity},history:state.history.map(cloneArchive),career:{...state.career},show:cloneShow(state.show),creativeTeam:{...state.creativeTeam},creativeFees:{...state.creativeFees},accounts:{...state.accounts},
+  return {...state,identity:{...state.identity},history:state.history.map(cloneArchive),career:{...state.career},show:cloneShow(state.show),circuit:cloneCircuit(state.circuit),creativeTeam:{...state.creativeTeam},creativeFees:{...state.creativeFees},accounts:{...state.accounts},
     members:state.members.map(m=>({...m})),candidates:state.candidates.map(m=>({...m})),upgrades:{...state.upgrades},
     results:state.results.map(r=>({...r})),rivals:state.rivals.map(r=>({...r,scores:[...r.scores]})),log:[...state.log],
     resolvedDecisions:[...state.resolvedDecisions],decisionHistory:state.decisionHistory.map(d=>({...d})),pendingRenewals:[...state.pendingRenewals]};
@@ -207,7 +233,7 @@ function makeCandidate(state:State,index:number):Member {
     scouting:0,participation:0,morale:70,rapport:0,lastContactDay:-1};
 }
 export function createGame(seed=2026):State {
-  const state:State={version:8,identity:{...DEFAULT_IDENTITY},history:[],career:{sinceSeason:1,completedSeasons:0,championships:0,finals:0},show:emptyShow(),pendingRenewals:[],season:1,day:0,money:INITIAL_BUDGET,fans:40,reputation:20,productionStarted:false,admissionExempt:false,
+  const state:State={version:9,identity:{...DEFAULT_IDENTITY},history:[],career:{sinceSeason:1,completedSeasons:0,championships:0,finals:0},show:emptyShow(),circuit:emptyCircuit(),pendingRenewals:[],season:1,day:0,money:INITIAL_BUDGET,fans:40,reputation:20,productionStarted:false,admissionExempt:false,
     creativeTeam:emptyTeam(),creativeFees:emptyFees(),costumeProposalId:null,accounts:emptyAccounts(INITIAL_BUDGET),fallosRevealed:false,
     contactsToday:0,fundraisersUsed:0,pendingDecision:null,resolvedDecisions:[],decisionHistory:[],
     members:[],candidates:[],upgrades:{voices:0,lyrics:0,costumes:0,staging:0},licensed:false,penalty:0,results:[],
@@ -616,6 +642,7 @@ function dueDecision(state: State): DecisionDefinition | undefined {
 }
 function advanceDay(state: State): void {
   state.day++;
+  state.circuit.plan=[];
   state.contactsToday = 0;
   state.pendingDecision = dueDecision(state)?.id ?? null;
 }
@@ -682,12 +709,113 @@ export function contactMember(state: State, id: string): State {
 /** Compatibility name: the same contact rules apply to the market and pending renewals. */
 export function contactCandidate(state:State,id:string):State { return contactMember(state,id); }
 
+export function getCircuitForecast(state:Pick<State,'season'|'day'>):CircuitForecast {
+  const pattern=(state.season+state.day)%5;
+  return pattern===3?{condition:'rain',label:'Lluvia',description:'La lluvia suspende las funciones al aire libre antes de salir. Confirmar la noche consume la jornada, sin ingresos ni gastos.'}:
+    pattern===2?{condition:'unstable',label:'Inestable',description:'Puede suspenderse parte del recorrido antes de salir. La caja debe cubrir cualquier combinación de funciones realizadas.'}:
+    {condition:'dry',label:'Seco',description:'Se prevé realizar todas las funciones del recorrido. Pronóstico ficticio del juego.'};
+}
+function cancelledVenue(season:number,day:number,venueId:string):boolean {
+  const weather=getCircuitForecast({season,day}).condition;
+  return weather==='rain'||weather==='unstable'&&(season+day+CIRCUIT_VENUES.findIndex(venue=>venue.id===venueId))%2===0;
+}
+function circuitRoute(ids:unknown):{valid:boolean;reason:string;stops:(CircuitVenue&{travelMinutes:number})[]} {
+  if(!Array.isArray(ids)||ids.length<1||ids.length>3||ids.some(id=>typeof id!=='string')||new Set(ids).size!==ids.length)
+    return {valid:false,reason:'Elegí entre una y tres paradas, sin repetir escenarios.',stops:[]};
+  const venues=ids.map(id=>CIRCUIT_VENUES.find(venue=>venue.id===id));
+  if(venues.some(venue=>!venue))return {valid:false,reason:'Uno de los escenarios no pertenece al circuito.',stops:[]};
+  venues.sort((a,b)=>a!.startMinute-b!.startMinute);
+  const stops=venues.map((venue,index)=>({...venue!,energy:{...venue!.energy},travelMinutes:index&&venues[index-1]!.zone!==venue!.zone?45:20}));
+  for(let i=1;i<stops.length;i++)if(stops[i].startMinute<stops[i-1].startMinute+stops[i-1].duration+stops[i].travelMinutes)
+    return {valid:false,reason:`No llegás de ${stops[i-1].name} a ${stops[i].name}: la función y el traslado requieren más tiempo. Elegí otros horarios.`,stops};
+  return {valid:true,reason:'',stops};
+}
+function circuitNight(season:number,day:number,venues:CircuitVenue[],performed:boolean[]):CircuitNight {
+  let previous:CircuitVenue|undefined;
+  const stops=venues.map((venue,index):CircuitNight['stops'][number]=>{
+    if(!performed[index])return {venueId:venue.id,status:'cancelled',gross:0,memberFees:0,transport:0};
+    const stop={venueId:venue.id,status:'performed' as const,gross:venue.fee,memberFees:17*ECONOMY_COSTS.cachePerMember,
+      transport:ECONOMY_COSTS.transport+(previous&&previous.zone!==venue.zone?600:0)};
+    previous=venue;return stop;
+  });
+  const gross=stops.reduce((total,stop)=>total+stop.gross,0),memberFees=stops.reduce((total,stop)=>total+stop.memberFees,0),transport=stops.reduce((total,stop)=>total+stop.transport,0);
+  return {day,forecast:getCircuitForecast({season,day}).condition,stops,gross,memberFees,transport,net:gross-memberFees-transport};
+}
+function circuitEnergy(state:State,venues:CircuitVenue[]):number {
+  return round(average(state.members.map(member=>{
+    const role=member.role==='chorister'||member.role==='director'?member.role:'percussion';
+    return clamp(member.energy+venues.reduce((total,venue)=>total+venue.energy[role],0))-member.energy;
+  })));
+}
+export function getCircuitAvailability(state:State):{enabled:boolean;reason:string} {
+  if(state.status!=='playing')return {enabled:false,reason:'La temporada terminó. El circuito vuelve en el próximo carnaval.'};
+  if(state.pendingRenewals.length)return {enabled:false,reason:'Resolvé los contratos pendientes antes de avanzar el calendario.'};
+  if(!state.productionStarted)return {enabled:false,reason:'Confirmá el equipo técnico y comenzá la producción antes de salir al circuito.'};
+  if(state.day<TABLADOS_START_DAY)return {enabled:false,reason:'El circuito de tablados abre desde fines de enero.'};
+  if(EVENTS.some(event=>event.day===state.day))return {enabled:false,reason:`Hoy toca ${getCalendar(state).eventName}. No se agenda un circuito la misma jornada.`};
+  if(getPendingDecision(state))return {enabled:false,reason:'Resolvé la decisión del grupo antes de salir al circuito.'};
+  return {enabled:true,reason:''};
+}
+export function getCircuitPreview(state:State,venueIds:readonly string[]=state.circuit.plan):{
+  valid:boolean;reason:string;stops:(CircuitVenue&{travelMinutes:number})[];gross:number;memberFees:number;transport:number;net:number;energy:number;requiredCash:number;
+} {
+  const route=circuitRoute(venueIds);
+  if(!route.valid)return {...route,gross:0,memberFees:0,transport:0,net:0,energy:0,requiredCash:0};
+  const full=circuitNight(state.season,state.day,route.stops,route.stops.map(()=>true));
+  const weather=getCircuitForecast(state).condition;
+  let requiredCash=0;
+  // With at most3 stops, enumerate every possible performed subset and its cumulative deficit.
+  const masks=weather==='rain'?[0]:weather==='dry'?[(1<<route.stops.length)-1]:Array.from({length:1<<route.stops.length},(_,mask)=>mask);
+  for(const mask of masks){
+    const possibility=circuitNight(state.season,state.day,route.stops,route.stops.map((_,index)=>Boolean(mask&(1<<index))));
+    let balance=0;
+    for(const stop of possibility.stops){balance+=stop.gross-stop.memberFees-stop.transport;requiredCash=Math.max(requiredCash,-balance);}
+  }
+  return {...route,gross:full.gross,memberFees:full.memberFees,transport:full.transport,net:full.net,
+    energy:circuitEnergy(state,route.stops),requiredCash};
+}
+export function setCircuitPlan(state:State,ids:string[]):State {
+  if(Array.isArray(ids)&&ids.length===0){const next=copy(state);next.circuit.plan=[];log(next,'Agenda vaciada sin costo ni avance de jornada.');return next;}
+  const availability=getCircuitAvailability(state);
+  if(!availability.enabled)return notice(state,availability.reason);
+  const preview=getCircuitPreview(state,ids);
+  if(!preview.valid)return notice(state,preview.reason);
+  const next=copy(state);next.circuit.plan=preview.stops.map(venue=>venue.id);
+  log(next,`Agenda preparada: ${preview.stops.map(venue=>venue.name).join(' → ')}. No se cobra ni avanza hasta confirmar la salida.`);
+  return next;
+}
+export function cancelCircuitPlan(state:State):State {return setCircuitPlan(state,[]);}
+function executeCircuit(state:State,ids:readonly string[]):State {
+  const availability=getCircuitAvailability(state);
+  if(!availability.enabled)return notice(state,availability.reason);
+  const preview=getCircuitPreview(state,ids);
+  if(!preview.valid)return notice(state,preview.reason);
+  if(state.money<preview.requiredCash)return notice(state,`Necesitás $${preview.requiredCash} UYU de caja para cubrir el peor recorrido posible; tenés $${state.money}.`);
+  const performed=preview.stops.map(venue=>!cancelledVenue(state.season,state.day,venue.id));
+  const night=circuitNight(state.season,state.day,preview.stops,performed),next=copy(state);
+  next.money+=night.net;next.accounts.performanceIncome+=night.gross;next.accounts.performanceCosts+=night.memberFees+night.transport;
+  next.circuit.history.push(night);
+  const actual=preview.stops.filter((_,index)=>performed[index]);
+  next.fans+=actual.reduce((total,venue)=>total+venue.fans,0);
+  next.members.forEach(member=>{
+    const role=member.role==='chorister'||member.role==='director'?member.role:'percussion';
+    for(const venue of actual){
+      member.energy=round(clamp(member.energy+venue.energy[role]));member.experience=round(clamp(member.experience+.3));
+      member.morale=round(clamp(member.morale+(venue.kind==='popular'?1:-2)));
+    }
+    if(actual.length){member.participation++;if(member.participation>=6)member.scouting=2;}
+  });
+  advanceDay(next);
+  log(next,`${actual.length} de ${preview.stops.length} funciones realizadas. Ingreso $${night.gross}; cachés $${night.memberFees}; transporte $${night.transport}; saldo $${night.net} UYU.${actual.length<preview.stops.length?' Las suspendidas por lluvia se cancelaron antes de partir, sin cobros ni desgaste.':''}`);
+  return next;
+}
+export function performCircuit(state:State):State {return executeCircuit(state,state.circuit.plan);}
+
 export function getEconomySummary(state:State) {
-  const shows=ECONOMY_COSTS.showsPerAction, transport=ECONOMY_COSTS.transport*shows;
-  const memberFees=state.members.length*ECONOMY_COSTS.cachePerMember*shows;
-  const show=(grossPerShow:number)=>({shows,gross:grossPerShow*shows,transport,memberFees,net:grossPerShow*shows-transport-memberFees});
+  const preset=(kind:'popular'|'commercial')=>{const preview=getCircuitPreview(state,CIRCUIT_PRESETS[kind]);
+    return {shows:preview.stops.length,gross:preview.gross,transport:preview.transport,memberFees:preview.memberFees,net:preview.net};};
   const fundraiserGross=ECONOMY_COSTS.fundraiserBaseGross+Math.min(20000,state.fans*80);
-  return {...ECONOMY_COSTS,popular:show(ECONOMY_COSTS.popularGross),commercial:show(ECONOMY_COSTS.commercialGross),
+  return {...ECONOMY_COSTS,popular:preset('popular'),commercial:preset('commercial'),
     fundraiser:{gross:fundraiserGross,cost:ECONOMY_COSTS.fundraiserCost,net:fundraiserGross-ECONOMY_COSTS.fundraiserCost}};
 }
 export function getActionAvailability(state:State,action:Action):{enabled:boolean;reason:string} {
@@ -707,10 +835,13 @@ export function getActionAvailability(state:State,action:Action):{enabled:boolea
   }
   if(action==='community' && state.money<ECONOMY_COSTS.community) return {enabled:false,reason:`El encuentro necesita ${ECONOMY_COSTS.community} UYU para comida y materiales.`};
   if(action==='rehearse' && state.day<REHEARSALS_START_DAY) return {enabled:false,reason:'Los ensayos de esta planificación comienzan en julio. Abril, mayo y junio se dedican al armado y las contrataciones.'};
-  if((action==='popular'||action==='commercial') && state.day<TABLADOS_START_DAY) return {enabled:false,reason:'El circuito de tablados abre desde fines de enero. Ahora toca armar y ensayar.'};
+  if(action==='popular'||action==='commercial') {
+    const available=getCircuitAvailability(state);
+    if(!available.enabled)return available;
+    const preview=getCircuitPreview(state,CIRCUIT_PRESETS[action]);
+    if(state.money<preview.requiredCash)return {enabled:false,reason:`Necesitás $${preview.requiredCash} UYU para cubrir el peor recorrido posible.`};
+  }
   if(action==='rehearse' && state.money<ECONOMY_COSTS.rehearsal) return {enabled:false,reason:`El ensayo requiere $${ECONOMY_COSTS.rehearsal} UYU para local, apoyo y logística.`};
-  if((action==='popular'||action==='commercial') && state.money+getEconomySummary(state)[action].net<0)
-    return {enabled:false,reason:'No hay caja para cubrir la diferencia entre el caché del circuito y sus gastos.'};
   return {enabled:true,reason:''};
 }
 export function getUpgradeCost(state:State,upgrade:Upgrade):number {
@@ -730,8 +861,8 @@ export function getActionPreview(state:State,action:Action):{money:number;energy
   if(action==='rehearse') return {money:-ECONOMY_COSTS.rehearsal,energy,label:`Ensayo ${state.show.focus==='general'?'general: hasta +12 de interpretación por sección':`${SHOW_SECTIONS.find(section=>section.id===state.show.focus)!.name}: hasta +36 de interpretación`}. El avance depende del texto y los arreglos; práctica, experiencia y logística incluidos.`};
   if(action==='rest') return {money:0,energy,label:state.day<REHEARSALS_START_DAY?'Avanzar el armado y la planificación':'Descansar y cuidar la voz'};
   if(action==='popular'||action==='commercial') {
-    const e=getEconomySummary(state)[action];
-    return {money:e.net,energy,label:`Dos actuaciones: ingreso $${e.gross}; cachés $${e.memberFees}; ómnibus $${e.transport} UYU. ${action==='popular'?'+25 seguidores':'+12 seguidores'}.`};
+    const e=getCircuitPreview(state,CIRCUIT_PRESETS[action]);
+    return {money:e.net,energy:e.energy,label:`Recorrido previsto de dos actuaciones: ingreso $${e.gross}; cachés $${e.memberFees}; transporte $${e.transport} UYU. Clima: ${getCircuitForecast(state).label}. Las suspensiones reducen ingresos y gastos.`};
   }
   const event=EVENTS.find(e=>e.day===state.day)!;
   if(event.day===EVENTS[0].day&&state.admissionExempt) return {money:0,energy:0,label:'Inscripción directa por haber disputado la Liguilla anterior. No hay prueba, puntaje ni desgaste.'};
@@ -741,6 +872,7 @@ export function getActionPreview(state:State,action:Action):{money:number;energy
     `Fallos: suma de las tres ruedas. Premio ficticio condicionado al primer puesto: $${event.prize} UYU.`};
 }
 export function performAction(state: State, action: Action): State {
+  if(action==='popular'||action==='commercial')return executeCircuit(state,CIRCUIT_PRESETS[action]);
   const availability = getActionAvailability(state, action);
   if (!availability.enabled) return notice(state, availability.reason);
   const event = EVENTS.find(e => e.day === state.day);
@@ -804,33 +936,24 @@ export function performAction(state: State, action: Action): State {
       next.fans+=35;
     }
     if(action==='community') next.accounts.communityCosts+=ECONOMY_COSTS.community;
-    if (action === 'popular' || action === 'commercial') {
-      const economy=getEconomySummary(state);
-      next.accounts.performanceIncome += action === 'popular' ? economy.popular.gross : economy.commercial.gross;
-      next.accounts.performanceCosts += economy.popular.transport + economy.popular.memberFees;
-    }
     next.members.forEach(member => {
       member.energy = round(clamp(member.energy + energyChange(member, action)));
       if (action === 'rehearse') {
         if (member.role === 'chorister') member.voice = round(clamp(member.voice + .8));
         else member.skill = round(clamp(member.skill + (member.role === 'director' ? .5 : .7)));
       }
-      const moraleDelta=action==='rehearse'?-1:action==='commercial'?-4:action==='popular'?2:action==='fundraiser'?4:action==='community'?10:2;
+      const moraleDelta=action==='rehearse'?-1:action==='fundraiser'?4:action==='community'?10:2;
       member.morale=round(clamp(member.morale+moraleDelta));
       if(action==='community') {member.loyalty=clamp(member.loyalty+3);member.rapport=clamp(member.rapport+5);}
-      if (action === 'rehearse' || action === 'popular' || action === 'commercial') { member.experience=round(clamp(member.experience+(action==='rehearse'?.4:.6))); member.participation++; if(member.participation>=6) member.scouting=2; }
+      if (action === 'rehearse') { member.experience=round(clamp(member.experience+.4)); member.participation++; if(member.participation>=6) member.scouting=2; }
     });
-    if (action === 'popular') next.fans += 25;
-    if (action === 'commercial') next.fans += 12;
-    const messages: Record<Exclude<Action, 'compete'>, string> = {
+    const messages: Record<Exclude<Action, 'compete'|'popular'|'commercial'>, string> = {
       fundraiser:`Festival solidario del barrio: recaudación ${getEconomySummary(state).fundraiser.gross}, gastos ${ECONOMY_COSTS.fundraiserCost} UYU. El apoyo suma caja, ánimo y seguidores; no fue un tablado del circuito.`,
       community:'El elenco compartió un encuentro: mejoraron el ánimo, la lealtad y los vínculos. Comida y materiales pagados; sin práctica artística adicional.',
       rehearse: 'Ensayo completado: el coro, la batería y la dirección ganan práctica. La experiencia se conserva entre temporadas.',
-      popular: `Circuito popular de dos actuaciones. Saldo ${preview.money} UYU después de cachés y transporte; +25 seguidores.`,
-      commercial: `Circuito comercial de dos actuaciones: saldo ${preview.money} UYU después de cachés y transporte. La voz sintió el esfuerzo.`,
       rest: state.day<REHEARSALS_START_DAY ? 'Avanzó la planificación del año. El elenco sigue disponible para el armado; los ensayos comienzan en julio.' : 'Descanso completo: el coro recuperó hasta 26 de energía, la batería 23 y la dirección 22.',
     };
-    log(next, messages[action as Exclude<Action, 'compete'>]);
+    log(next, messages[action as Exclude<Action, 'compete'|'popular'|'commercial'>]);
   }
   advanceDay(next);
   return next;
@@ -1059,6 +1182,7 @@ export function nextSeason(state:State):State {
   next.contactsToday=0;next.fundraisersUsed=0;next.pendingDecision=null;next.resolvedDecisions=[];next.decisionHistory=[];
   next.creativeTeam=emptyTeam();next.creativeFees=emptyFees();next.costumeProposalId=null;
   next.show=emptyShow();
+  next.circuit=emptyCircuit();
   next.upgrades={voices:0,lyrics:0,costumes:0,staging:0};next.licensed=false;next.results=[];
   next.rivals.forEach(r=>{r.scores=[];});
   archiveFinishedSeason(next,state);
@@ -1155,6 +1279,12 @@ function migrateV6(raw:Record<string,unknown>):unknown {
 function migrateV7(raw:Record<string,unknown>):unknown {
   return {...raw,version:8,pendingRenewals:[]};
 }
+/** Preserve previous tablado accounts without reconstructing individual performances. */
+function migrateV8(raw:Record<string,unknown>):unknown {
+  if(!raw.accounts||typeof raw.accounts!=='object'||Array.isArray(raw.accounts))return null;
+  const accounts=raw.accounts as Record<string,unknown>;
+  return {...raw,version:9,circuit:{plan:[],history:[],legacyIncome:accounts.performanceIncome,legacyCosts:accounts.performanceCosts}};
+}
 
 /** Reject corrupted/out-of-schema saves; local saves are not an anti-cheat security boundary. */
 export function parseSave(raw: string | null): State | null {
@@ -1187,7 +1317,8 @@ export function parseSave(raw: string | null): State | null {
     if(object(value)&&value.version===5) value=migrateV5(value);
     if(object(value)&&value.version===6) value=migrateV6(value);
     if(object(value)&&value.version===7) value=migrateV7(value);
-    if (!object(value) || value.version !== 8 || !number(value.season, 1, 10000, true) || !number(value.day, 0, TOTAL_DAYS - 1, true) ||
+    if(object(value)&&value.version===8) value=migrateV8(value);
+    if (!object(value) || value.version !== 9 || !number(value.season, 1, 10000, true) || !number(value.day, 0, TOTAL_DAYS - 1, true) ||
       !number(value.money, 0, 1000000000, true) || !number(value.fans, 0, 1000000000, true) || !number(value.seed, 0, 4294967295, true) ||
       typeof value.licensed !== 'boolean' || typeof value.productionStarted !== 'boolean' || typeof value.fallosRevealed !== 'boolean' || value.penalty !== 0 || !['playing', 'won', 'lost'].includes(value.status as string) ||
       !text(value.lastMessage, 1000) || !Array.isArray(value.log) || value.log.length > 30 || !value.log.every(item => text(item, 1000))) return null;
@@ -1328,6 +1459,29 @@ export function parseSave(raw: string | null): State | null {
     const decisionsCost=state.decisionHistory.reduce((total,record)=>total+
       (DECISIONS.find(decision=>decision.id===record.id)?.options.find(option=>option.id===record.optionId)?.cost??0),0);
     if(state.accounts.communityCosts<state.fundraisersUsed*ECONOMY_COSTS.fundraiserCost+decisionsCost) return null;
+
+    if(!object(state.circuit)||!exactKeys(state.circuit as unknown as Record<string,unknown>,['plan','history','legacyIncome','legacyCosts'])||
+      !Array.isArray(state.circuit.plan)||!Array.isArray(state.circuit.history)||state.circuit.history.length>5||
+      !number(state.circuit.legacyIncome,0,10000000000,true)||!number(state.circuit.legacyCosts,0,10000000000,true))return null;
+    if(state.circuit.plan.length){
+      const route=circuitRoute(state.circuit.plan);
+      if(!route.valid||!getCircuitAvailability(state).enabled||route.stops.some((venue,index)=>venue.id!==state.circuit.plan[index]))return null;
+    }
+    if(!state.circuit.history.every((night,index)=>{
+      if(!object(night)||!exactKeys(night,['day','forecast','stops','gross','memberFees','transport','net'])||
+        !number(night.day,TABLADOS_START_DAY,state.day-1,true)||EVENTS.some(event=>event.day===night.day)||
+        (index>0&&state.circuit.history[index-1].day>=night.day)||!Array.isArray(night.stops))return false;
+      const route=circuitRoute(night.stops.map(stop=>object(stop)?stop.venueId:null));
+      if(!route.valid)return false;
+      const expected=circuitNight(state.season,night.day,route.stops,route.stops.map(venue=>!cancelledVenue(state.season,night.day as number,venue.id)));
+      return night.forecast===expected.forecast&&night.gross===expected.gross&&night.memberFees===expected.memberFees&&
+        night.transport===expected.transport&&night.net===expected.net&&night.stops.every((stop,i)=>object(stop)&&
+          exactKeys(stop,['venueId','status','gross','memberFees','transport'])&&
+          stop.venueId===expected.stops[i].venueId&&stop.status===expected.stops[i].status&&stop.gross===expected.stops[i].gross&&
+          stop.memberFees===expected.stops[i].memberFees&&stop.transport===expected.stops[i].transport);
+    }))return null;
+    if(state.accounts.performanceIncome!==state.circuit.legacyIncome+state.circuit.history.reduce((total,night)=>total+night.gross,0)||
+      state.accounts.performanceCosts!==state.circuit.legacyCosts+state.circuit.history.reduce((total,night)=>total+night.memberFees+night.transport,0))return null;
 
     const contestRounds = Math.max(0, state.results.length - 1);
     if (contestRounds < 3 && state.rivals.some(rival => rival.scores.length !== contestRounds)) return null;

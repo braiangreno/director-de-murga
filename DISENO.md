@@ -1,8 +1,49 @@
 # Director de Murga
 
-Documento de diseño del prototipo. La revisión vigente es **v8, del 7 de octubre de 2026**: añade acuerdos individuales de continuidad al espectáculo de v7, la identidad y trayectoria de v6 y la vida comunitaria de v5. Las secciones v4 y v3 son antecedentes; sus versiones, calendarios y tareas pendientes no sustituyen el estado actual. Los valores concretos de balance están en `src/simulation.ts`. La verificación funcional y visual de v8 está documentada en [QA-CONTRATOS-V8.md](QA-CONTRATOS-V8.md); la sincronización de proyectos nativos no acredita ejecución en teléfonos físicos.
+Documento de diseño del prototipo. La revisión vigente es **v9, del 7 de octubre de 2026**: añade una agenda de tablados con horarios, traslados y lluvia a los acuerdos de v8, el espectáculo de v7, la identidad y trayectoria de v6 y la vida comunitaria de v5. Las secciones v4 y v3 son antecedentes; sus versiones, calendarios y tareas pendientes no sustituyen el estado actual. Los valores concretos de balance están en `src/simulation.ts`. La verificación de v9 está documentada en [QA-CIRCUITO-V9.md](QA-CIRCUITO-V9.md): 81 pruebas automatizadas, recorrido de navegador y sincronización nativa. No acredita ejecución de binarios en teléfonos físicos.
 
-## Revisión vigente v8: acordar la continuidad del elenco
+## Revisión vigente v9: agenda de tablados
+
+### Elegir una noche representativa
+
+`State.circuit` contiene la selección actual, el historial de salidas del año y los totales económicos heredados de versiones anteriores. El catálogo `CIRCUIT_VENUES` ofrece **seis escenarios ficticios**, populares y comerciales, con hora, zona, ingreso bruto, seguidores y desgaste por función del elenco. No usa nombres reales para atribuir honorarios, cancelaciones o rentabilidad a un espacio existente. La evidencia y sus límites se documentan en [CIRCUITO-FUENTES.md](CIRCUITO-FUENTES.md).
+
+La agenda se puede consultar antes de la apertura. Para preparar y ejecutar una salida se requiere temporada activa, producción iniciada, contratos del elenco resueltos y `day >= 24`. Las jornadas de presentación oficial y las decisiones pendientes bloquean la salida. Reservar esas jornadas únicamente al concurso es una simplificación de esta campaña, no una prohibición real para todas las murgas.
+
+`setCircuitPlan` permite seleccionar **de una a tres paradas**, sin repetir escenario, y las ordena por hora. Preparar, modificar o vaciar la selección no cobra ni avanza el calendario. `performCircuit` confirma la noche y consume **una jornada**, independientemente de cuántas actuaciones se realicen. Se conservan las 32 jornadas representativas: el recorrido no crea un calendario diario adicional.
+
+### Horarios y logística
+
+Todos los siguientes tiempos e importes son **parámetros ficticios de balance**, no duraciones reglamentarias, tarifas vigentes ni recorridos medidos de Montevideo.
+
+| Concepto | Regla de v9 |
+| --- | --- |
+| Duración de actuación | 40 minutos por parada. |
+| Primera salida | 20 minutos de traslado representado. |
+| Entre funciones en la misma zona | 20 minutos. |
+| Entre funciones en zonas distintas | 45 minutos. |
+| Costo de transporte | UYU 3.500 por actuación realizada. |
+| Cambio de zona | UYU 600 adicionales si difiere de la actuación anterior efectivamente realizada. |
+
+El inicio de la siguiente función debe permitir terminar la anterior y trasladarse. Las combinaciones incompatibles se rechazan sin cobrar; no se multa al jugador después de aceptar una ruta imposible. Los horarios posteriores a medianoche se almacenan como minutos mayores que 1.440 para preservar el orden de la noche. No se agrega un margen de montaje separado de los tiempos anteriores.
+
+`getCircuitPreview` devuelve la ruta y una estimación de ingreso, cachés, transporte, saldo neto y energía **suponiendo que se realizan todas las funciones seleccionadas**. Esa estimación no garantiza la recaudación si hay suspensiones. También informa `requiredCash`: el máximo déficit acumulado que podría exigir el recorrido con el clima previsto. Con tiempo inestable considera todos los subconjuntos posibles de funciones realizadas, evitando que una parada rentable suspendida deje sin caja para pagar otra. No es una retención ni un cobro adicional.
+
+### Clima y liquidación de la salida
+
+`getCircuitForecast` devuelve **seco, inestable o lluvia**, fijado por temporada y jornada. No consulta un servicio meteorológico ni cambia al recargar. En seco se realizan las paradas; con tiempo inestable se suspende una parte; con lluvia se suspenden todas. Esta última regla corresponde a los **seis espacios abiertos sin alternativa cubierta del catálogo ficticio**. La investigación sí documenta escenarios reales con traslado a sala, por lo que no debe presentarse como regla universal del carnaval.
+
+Las suspensiones se resuelven **antes de partir**. Cada parada cancelada registra cero ingreso, cachés y transporte; no produce desgaste, XP ni otros efectos de actuación. Los viajes se calculan entre las paradas realizadas, omitiendo las canceladas. Cada función realizada registra su ingreso bruto, los cachés del elenco y transporte; el saldo neto modifica la caja una sola vez.
+
+Confirmar una noche totalmente suspendida consume la jornada sin ingresos ni gastos de circuito. El historial conserva las paradas previstas, cuáles se realizaron o cancelaron, clima y liquidación. Cualquier avance de jornada vacía el plan anterior, de modo que un segundo clic no puede volver a cobrar la misma salida. Una ejecución bloqueada por agenda, caja o disponibilidad no liquida ni consume la jornada.
+
+### Guardado v9 y continuidad económica
+
+La clave activa es **`director-de-murga-v9`**. Agenda e historial se guardan dentro de `circuit`, con copias independientes de las paradas y sus resultados. Al pasar de temporada se inicia un circuito vacío. El detalle de cada noche pertenece al año en curso; los cierres anuales conservan las cuentas agregadas, sin incorporar un archivo permanente de cada itinerario.
+
+La migración **v8 → v9** conserva la partida, la caja y el libro de cuentas. Añade `plan: []` e `history: []`, y copia los ingresos y costos de actuaciones ya contabilizados a `legacyIncome` y `legacyCosts`. Esos totales permiten conciliar la actividad anterior con las nuevas salidas; **no reconstruyen escenarios, clima ni actuaciones desconocidas**, ni acreditan dinero otra vez. Se preservan avances del espectáculo, contratos pendientes, carreras, decisiones, resultados y archivos. Las claves previas y el guardado cosmético mantienen su tratamiento anterior.
+
+## Base funcional v8 conservada en v9: acordar la continuidad del elenco
 
 ### El cierre anual y el nuevo armado
 
@@ -34,13 +75,13 @@ Mientras hay pendientes, cada gasto neto positivo se contrasta con la ruta que q
 
 Los reintegros siguen permitidos. Mientras no se inició la producción, cambiar una selección técnica devuelve el honorario anterior; cambiar de vestuarista devuelve también la confección pagada y borra esa propuesta. La protección se limita a las **plazas pendientes**: no incluye los cinco técnicos, el traje ni la preparación posterior, y deja de aplicarse cuando el elenco está confirmado. Por eso no equivale a una garantía general de solvencia de la temporada.
 
-### Guardado v8 y compatibilidad
+### Contratos incorporados en v8 y compatibilidad
 
-La clave activa es **`director-de-murga-v8`**. Los IDs pendientes forman parte de la partida, de modo que una recarga conserva firmas parciales y sus cobros. El validador exige IDs únicos del elenco actual y admite pendientes únicamente en temporada 2 o posterior, jornada interna 0, estado activo y producción sin iniciar. No acepta que una campaña avanzada conserve contratos sin resolver.
+La clave histórica **`director-de-murga-v8`** incorporó los contratos pendientes, ahora conservados en v9. Sus IDs forman parte de la partida, de modo que una recarga conserva firmas parciales y sus cobros. El validador exige IDs únicos del elenco actual y admite pendientes únicamente en temporada 2 o posterior, jornada interna 0, estado activo y producción sin iniciar. No acepta que una campaña avanzada conserve contratos sin resolver.
 
 La migración **v7 → v8** preserva todos los campos anteriores y añade **`pendingRenewals: []`**: los acuerdos existentes permanecen confirmados y no se cobran por segunda vez. Conserva dinero, contabilidad, avances del espectáculo, decisiones, resultados, archivo e identidades. No suma financiación ni aplica otra bonificación anual. Las migraciones desde versiones anteriores mantienen sus pasos previos. Las claves antiguas se conservan como respaldo y las apariencias siguen guardadas aparte, por ID.
 
-## Base funcional v7 conservada en v8: crear el espectáculo
+## Base funcional v7 conservada en v9: crear el espectáculo
 
 ### Título, tema y tres partes
 
@@ -82,13 +123,13 @@ Las tareas representan gestión creativa. No generan letras reales, melodías, g
 
 ### Archivo del espectáculo incorporado en v7
 
-La clave histórica `director-de-murga-v7` incorporó los campos del espectáculo, ahora conservados en v8. El título, tema, foco, bloqueo y avances sobreviven a la recarga. Al pasar de año se copia al cierre un `ShowSnapshot` con título, tema, avance total y las tres secciones; no comparte objetos mutables con el espectáculo siguiente. El plan del nuevo año vuelve a la propuesta inicial, foco general, sin bloqueo y con los nueve avances en cero.
+La clave histórica `director-de-murga-v7` incorporó los campos del espectáculo, ahora conservados en v9. El título, tema, foco, bloqueo y avances sobreviven a la recarga. Al pasar de año se copia al cierre un `ShowSnapshot` con título, tema, avance total y las tres secciones; no comparte objetos mutables con el espectáculo siguiente. El plan del nuevo año vuelve a la propuesta inicial, foco general, sin bloqueo y con los nueve avances en cero.
 
 La migración **v6 → v7** conserva identidad, carrera, elenco, candidatos, cuentas, decisiones, resultados y el resto de la partida. Añade el espectáculo inicial sin atribuirle trabajo que v6 no registraba. Los archivos anteriores reciben **`show: null`**, presentado como falta de registro, no como preparación cero de aquel año ni pérdida de su historia. Las notas ya obtenidas no se recalculan por migrar.
 
 Los nuevos archivos mantienen la publicación de resultados y el límite de 50 cierres definidos en v6. La migración no suma financiación, no cobra técnicos y no reinicia la temporada. Las claves anteriores permanecen respaldadas y las apariencias siguen en su guardado independiente.
 
-## Base funcional v6 conservada en v8: identidad y trayectoria
+## Base funcional v6 conservada en v9: identidad y trayectoria
 
 ### Una murga con nombre propio
 
@@ -121,13 +162,13 @@ Los ingresos de actividad incluyen actuaciones, aportes barriales y premios del 
 
 ### Identidad y continuidad incorporadas en v6
 
-La clave histórica `director-de-murga-v6` introdujo `identity`, `history` y contadores de carrera con `sinceSeason`, conservados ahora en v8 junto a los campos de v5. El archivo guarda copias independientes y se incorpora una sola vez al cierre. La interfaz consume las APIs públicas, que no exponen capacidades artísticas ocultas; el guardado local completo sigue conteniendo los datos internos necesarios para la simulación.
+La clave histórica `director-de-murga-v6` introdujo `identity`, `history` y contadores de carrera con `sinceSeason`, conservados ahora en v9 junto a los campos de v5. El archivo guarda copias independientes y se incorpora una sola vez al cierre. La interfaz consume las APIs públicas, que no exponen capacidades artísticas ocultas; el guardado local completo sigue conteniendo los datos internos necesarios para la simulación.
 
 La migración **v5 → v6** conserva los datos anteriores y agrega identidad inicial, historial vacío y contadores desde la temporada en curso. No deduce campeonatos pasados ni inventa planteles, balances o progresos que el guardado antiguo no registró. El primer cierre posterior a la actualización inicia el archivo real. Las comparaciones sin referencia siguen siendo desconocidas.
 
 Las claves anteriores quedan respaldadas. Las migraciones más antiguas conservan sus pasos previos: **v4 → v5** incorpora comunidad sin cambiar dinero; **v3 → v4** contiene la conversión histórica de calendario y economía documentada más abajo. Ninguno de esos ajustes debe atribuirse al cambio directo de v5 a v6. Las apariencias mantienen su clave separada y los mismos IDs.
 
-## Base funcional v5 conservada en v8: la vida de la murga
+## Base funcional v5 conservada en v9: la vida de la murga
 
 La campaña conserva el armado de abril, 32 jornadas representativas, 120 candidatos persistentes y un elenco de 17 integrantes. El mercado abre hasta terminar septiembre; se ensaya desde julio, la admisión ocurre en noviembre y el circuito de tablados empieza a fines de enero. Son fechas comprimidas de esta simulación. Las cinco contrataciones técnicas, la economía en UYU, las carreras entre temporadas y las propuestas de vestuario introducidas en v4 siguen vigentes.
 
@@ -160,7 +201,7 @@ Son situaciones ficticias con consecuencias de balance; no sanciones oficiales n
 
 La libreta de caja incorpora `communityIncome` y `communityCosts`: recaudación de festivales por un lado, organización, encuentros y opciones pagadas por otro. Estos movimientos participan en el mismo balance que contratos, confección, ensayos y actuaciones; no son premios externos a la contabilidad.
 
-Estos campos fueron introducidos en **v5**, con clave histórica `director-de-murga-v5`, y ahora se conservan dentro del guardado v8: ánimo, vínculos, última conversación de cada persona, cuota diaria, festivales utilizados, decisión pendiente e historial de decisiones. La resolución y sus efectos forman un único estado guardado; volver a cargar o pulsar de nuevo una opción ya resuelta no repite sus efectos. El elenco y los candidatos conservan sus campos al intercambiar una plaza.
+Estos campos fueron introducidos en **v5**, con clave histórica `director-de-murga-v5`, y ahora se conservan dentro del guardado v9: ánimo, vínculos, última conversación de cada persona, cuota diaria, festivales utilizados, decisión pendiente e historial de decisiones. La resolución y sus efectos forman un único estado guardado; volver a cargar o pulsar de nuevo una opción ya resuelta no repite sus efectos. El elenco y los candidatos conservan sus campos al intercambiar una plaza.
 
 La migración **v4 → v5** mantiene dinero, carreras, resultados y partidas contables anteriores. Inicializa los campos comunitarios y marca eventos pasados como anteriores a esta actualización, sin aplicar recompensas retroactivas. Si corresponde un evento a la jornada actual, se presenta pendiente. La migración **v3 → v4 → v5** conserva primero la conversión histórica de calendario y economía, incluida su financiación de transición; no confundir ese ajuste con la migración directa desde v4. Las claves anteriores se respaldan y un guardado activo inválido se copia a una clave de recuperación.
 
@@ -188,7 +229,7 @@ Evidencia, fechas, precios históricos y límites: [ECONOMIA-Y-CARRERAS-FUENTES.
 
 ## Antecedente v3: especificación histórica
 
-**Archivo de diseño:** las secciones restantes conservan propuestas y límites de v3. El calendario, las funciones y el guardado vigentes están descritos arriba en v8 y sus bases funcionales v7, v6 y v5.
+**Archivo de diseño:** las secciones restantes conservan propuestas y límites de v3. El calendario, las funciones y el guardado vigentes están descritos arriba en v9 y sus bases funcionales v8, v7, v6 y v5.
 
 ## Propuesta
 
