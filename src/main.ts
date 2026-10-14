@@ -18,6 +18,8 @@ import { careerPanel, identityPanel } from './career-panel';
 import { showPanel, showBrief } from './show-panel';
 import { contractPanel, contractBrief } from './contracts-panel';
 import { circuitPanel, circuitBrief } from './circuit-panel';
+import { parseVisualSettings, type VisualSettings } from './render-policy';
+import { settingsPanel } from './settings-panel';
 import { setCircuitPlan, performCircuit } from './simulation';
 import { contactMember, getRenewalSummary, renewMember, renewAllWilling, type RecruitmentOffer } from './simulation';
 import { configureShow, developShow, getShowSummary, setRehearsalFocus, validateShowPlan, type ShowSectionId, type ShowWork, type RehearsalFocus } from './simulation';
@@ -42,6 +44,7 @@ const paths: Record<string,string> = {
   check:'<path d="m4 12 5 5L20 6"/>',
   close:'<path d="m6 6 12 12M6 18 18 6"/>',
   help:'<circle cx="12" cy="12" r="9"/><path d="M9 8a3 3 0 0 1 6 0c0 3-3 2-3 5m0 4h.01"/>',
+  settings:'<path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="8" cy="18" r="2"/>',
   trophy:'<path d="M7 3h10v7a5 5 0 0 1-10 0Zm5 12v5m-4 2h8M7 5H3v3a4 4 0 0 0 4 4m10-7h4v3a4 4 0 0 1-4 4"/>',
   refresh:'<path d="M3 10a9 9 0 1 1 1 7M3 3v7h7"/>',
   drum:'<ellipse cx="12" cy="8" rx="9" ry="4"/><path d="M3 8v9c0 5 18 5 18 0V8M3 9l6 11 6-11 6 8M5 2l8 4m6-4-8 4"/>',
@@ -57,6 +60,7 @@ const money = (n: number) => '$ ' + Math.round(n).toLocaleString('es-UY');
 const escape = (s: string) => s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 const signed = (n:number, suffix='') => `${n > 0 ? '+' : ''}${Math.round(n)}${suffix}`;
 const KEY = 'director-de-murga-v9';
+const VISUAL_KEY = 'director-de-murga-visual-settings-v1';
 const WARDROBE_KEY = 'director-de-murga-character-system-v1';
 const LEGACY_KEYS = ['director-de-murga-v8', 'director-de-murga-v7', 'director-de-murga-v6', 'director-de-murga-v5', 'director-de-murga-v4', 'director-de-murga-v3', 'director-de-murga-v2', 'director-de-murga-v1'];
 const CREATIVE_DETAILS: Record<CreativeRole, {icon: string; brief: string; effect: string}> = {
@@ -83,6 +87,10 @@ const upgrades: {id:Upgrade;name:string;icon:string;weight:number;description:st
 async function boot() {
   let state = createGame();
   let cosmetics = parseCosmetics(null);
+  let visualSettings = parseVisualSettings(null), visualSaveWarning = '';
+  let visualSaveQueue = Promise.resolve();
+  try { visualSettings = parseVisualSettings((await Preferences.get({key:VISUAL_KEY})).value); } catch { visualSaveWarning = 'No se pudieron leer las preferencias. Se usarán los valores iniciales.'; }
+  const systemMotion = matchMedia('(prefers-reduced-motion: reduce)');
   let activeWardrobeMember = state.members[0].id;
   let wardrobeSaveQueue = Promise.resolve();
   try { cosmetics = parseCosmetics((await Preferences.get({ key: WARDROBE_KEY })).value); } catch { /* Cosmetic defaults do not affect the season save. */ }
@@ -119,13 +127,41 @@ async function boot() {
   let sceneExpanded = false;
   let scene: MurgaScene | undefined, saveQueue = Promise.resolve(), toastTimer: ReturnType<typeof setTimeout>;
   document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
-    <header class="topbar"><a class="brand" href="#" aria-label="Director de Murga, inicio"><span class="brand-mark">${icon('mask')}</span><span>DIRECTOR<span class="brand-small">DE MURGA</span></span></a><div class="resources" id="resources"></div><button class="icon-button help-button" data-open="help" aria-label="Cómo jugar">${icon('help')}</button></header>
+    <header class="topbar"><a class="brand" href="#" aria-label="Director de Murga, inicio"><span class="brand-mark">${icon('mask')}</span><span>DIRECTOR<span class="brand-small">DE MURGA</span></span></a><div class="resources" id="resources"></div><button class="icon-button help-button settings-button" data-open="ajustes" aria-label="Ajustes del juego">${icon('settings')}</button></header>
     <main class="game"><section class="world"><div class="world-heading"><div class="eyebrow"><span class="live-dot"></span> CARNAVAL · MONTEVIDEO</div><h1>Que el barrio<br><em>vuelva a cantar.</em></h1><p>Tu murga. Tu historia. Tu carnaval.</p></div><div id="scene" class="scene"></div><div class="world-caption"><span class="caption-line"></span><span><span id="murga-name">La Vereda</span><br><small>Tu sede, tu punto de partida</small></span><span class="scene-stamp">EST. 2026</span></div><div class="scene-notice" id="scene-notice" hidden>Vista 3D no disponible. Podés seguir jugando con los controles.</div></section>
     <aside class="desk" id="desk" aria-label="Gestión de la murga"></aside></main>
     <nav class="bottom-nav" aria-label="Secciones del juego"><button class="selected" data-open="sede">${icon('mask')}<span>La sede</span></button><button data-open="plantel">${icon('people')}<span>El plantel</span><b>17</b></button><button data-open="taller">${icon('star')}<span>El taller</span></button><button data-open="comunidad">${icon('people')}<span>El barrio</span></button><button data-open="agenda">${icon('calendar')}<span>La temporada</span></button></nav>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
     <dialog id="panel"><div class="panel-header"><div><div class="eyebrow" id="panel-kicker"></div><h2 id="panel-title"></h2></div><button class="icon-button" data-close aria-label="Cerrar panel">${icon('close')}</button></div><div class="panel-content" id="panel-content"></div></dialog>`;
   const dialog = document.querySelector<HTMLDialogElement>('#panel')!;
+  function syncScenePause() { scene?.setPaused(Boolean(document.querySelector('dialog[open]'))); }
+  const sceneVisibilityObserver = new MutationObserver(syncScenePause);
+  sceneVisibilityObserver.observe(dialog,{attributes:true,attributeFilter:['open']});
+  sceneVisibilityObserver.observe(document.body,{childList:true});
+  function applyVisualSettings() {
+    document.documentElement.classList.toggle('reduce-motion-enabled',visualSettings.reducedMotion||systemMotion.matches);
+    scene?.setVisualSettings(visualSettings);
+  }
+  function onSystemMotion() {
+    applyVisualSettings();
+    if (dialog.open && page==='ajustes') renderPanel();
+  }
+  systemMotion.addEventListener('change',onSystemMotion);
+  applyVisualSettings();
+  function setVisualSettings(next:VisualSettings) {
+    visualSettings=parseVisualSettings(JSON.stringify(next));
+    const active=document.activeElement as HTMLInputElement|null;
+    const selector=active?.name==='graphics-quality'?`input[name="graphics-quality"][value="${visualSettings.quality}"]`:'[data-reduce-motion]';
+    applyVisualSettings(); renderPanel();
+    dialog.querySelector<HTMLInputElement>(selector)?.focus({preventScroll:true});
+    const value=JSON.stringify(visualSettings);
+    visualSaveQueue=visualSaveQueue.then(async()=>{
+      await Preferences.set({key:VISUAL_KEY,value}); visualSaveWarning='';
+    }).catch(()=>{visualSaveWarning='La preferencia está aplicada, pero no pudimos guardarla. Volvé a elegirla para reintentar.';}).then(()=>{
+      const message=dialog.querySelector('.settings-save');
+      if(message)message.textContent=visualSaveWarning||'Preferencias guardadas en este dispositivo.';
+    });
+  }
   document.querySelector('.world')!.insertAdjacentHTML('beforeend', '<button class="venue-button" data-visit-theatre aria-pressed="false">Ver Teatro de Verano</button>');
   document.querySelector('.world')!.insertAdjacentHTML('beforeend', `<p class="camera-help" id="camera-help"><span class="camera-help-pointer">Arrastrá para girar · rueda para acercar</span><span class="camera-help-touch">Arrastrá para girar · pellizcá para acercar</span><span class="sr-only">Con teclado: flechas para girar, más y menos para zoom, Inicio para volver.</span></p><div class="scene-toolbar" role="group" aria-label="Cámara del escenario"><button data-camera="in" aria-label="Acercar cámara" title="Acercar">${icon('plus')}</button><button data-camera="out" aria-label="Alejar cámara" title="Alejar">${icon('minus')}</button><button data-camera="reset" aria-label="Restablecer vista" title="Vista inicial">${icon('refresh')}</button><button data-expand-scene aria-expanded="false" aria-controls="scene" aria-label="Ampliar escenario">${icon('expand')}<span>Ampliar</span></button></div>`);
   function expandScene(expanded: boolean) {
@@ -173,6 +209,7 @@ async function boot() {
       onClose: previewId ? () => openPanel('vestuario') : undefined,
       allowedOutfitIds: [proposal.outfitId], allowedPaletteIds: [proposal.paletteId],
       members: state.members.map(member => ({ id: member.id, name: member.name })),
+      visualSettings,
       selectedMemberId: activeWardrobeMember,
       getSelection,
       onMemberChange: id => { activeWardrobeMember = id; },
@@ -310,13 +347,15 @@ async function boot() {
       <button class="outline-button team-summary" data-open="trayectoria">${icon('book')} Historia de la murga ${icon('arrow')}</button><button class="outline-button" data-open="reset">${icon('refresh')} Nueva temporada</button>`;
   }
   function renderPanel() {
-    const titles:Record<string,[string,string]>={circuito:['DE TABLADO EN TABLADO','La agenda de actuaciones'],contratos:['CADA AÑO, UN NUEVO ACUERDO','Los acuerdos del elenco'],espectaculo:['LETRA, MÚSICA Y ENSAYO','Nuestro espectáculo'],trayectoria:['DE CARNAVAL EN CARNAVAL','Historia de la murga'],identidad:['EL NOMBRE QUE VAMOS A CANTAR','Nuestra identidad'],comunidad:['SE HACE ENTRE TODOS','La vida de la murga'],decision:['LA LIBRETA DEL DIRECTOR','Una decisión del año'],produccion:['DE LA IDEA AL ESCENARIO','Tu equipo creativo'],plantel:['13 VOCES · 3 INSTRUMENTOS · 1 DIRECCIÓN','El plantel'],fichajes:['NOMBRES, HISTORIAS Y CONVERSACIONES','Mercado de integrantes'],vestuario:['DISEÑO Y CONFECCIÓN','El vestuario'],economia:['FUENTES Y PRESUPUESTOS','El costo del carnaval'],taller:['EL OFICIO DE EMOCIONAR','El taller'],agenda:['DE ABRIL A MARZO','La temporada'],help:['TU PRIMER CARNAVAL','Guía del director'],resultado:['BAJÓ EL TELÓN','Resultado de temporada'],reset:['LA MURGA SIGUE','La próxima temporada']};
+    const titles:Record<string,[string,string]>={ajustes:['A TU RITMO','Ajustes del juego'],circuito:['DE TABLADO EN TABLADO','La agenda de actuaciones'],contratos:['CADA AÑO, UN NUEVO ACUERDO','Los acuerdos del elenco'],espectaculo:['LETRA, MÚSICA Y ENSAYO','Nuestro espectáculo'],trayectoria:['DE CARNAVAL EN CARNAVAL','Historia de la murga'],identidad:['EL NOMBRE QUE VAMOS A CANTAR','Nuestra identidad'],comunidad:['SE HACE ENTRE TODOS','La vida de la murga'],decision:['LA LIBRETA DEL DIRECTOR','Una decisión del año'],produccion:['DE LA IDEA AL ESCENARIO','Tu equipo creativo'],plantel:['13 VOCES · 3 INSTRUMENTOS · 1 DIRECCIÓN','El plantel'],fichajes:['NOMBRES, HISTORIAS Y CONVERSACIONES','Mercado de integrantes'],vestuario:['DISEÑO Y CONFECCIÓN','El vestuario'],economia:['FUENTES Y PRESUPUESTOS','El costo del carnaval'],taller:['EL OFICIO DE EMOCIONAR','El taller'],agenda:['DE ABRIL A MARZO','La temporada'],help:['TU PRIMER CARNAVAL','Guía del director'],resultado:['BAJÓ EL TELÓN','Resultado de temporada'],reset:['LA MURGA SIGUE','La próxima temporada']};
     const [kicker,title] = titles[page]??titles.help;
     document.querySelector('#panel-kicker')!.textContent=kicker; document.querySelector('#panel-title')!.textContent=title;
     dialog.classList.toggle('production-panel', page === 'produccion');
     let body = '';
     const locked = !state.productionStarted || state.status !== 'playing';
-    if(page==='circuito') {
+    if(page==='ajustes') {
+      body=settingsPanel(visualSettings,systemMotion.matches,visualSaveWarning);
+    } else if(page==='circuito') {
       body=circuitPanel(state);
     } else if(page==='contratos') {
       body=contractPanel(state,renewalOffers);
@@ -367,7 +406,7 @@ async function boot() {
       <p class="fineprint">La partida se guarda en este dispositivo. ${modelReady?'Elenco con cuerpo común, vestuario intercambiable y animaciones. Personalizá a cada integrante en el taller.':'El elenco 3D está cargando; si falla, muestra figuras provisionales.'}</p><button class="outline-button" data-open="reset">${icon('refresh')} Próxima temporada</button>`;
     }
     if (page === 'taller') body = showBrief(state) + `<button class="outline-button team-summary" data-open="vestuario">${icon('shirt')} Diseño y confección del vestuario ${icon('arrow')}</button>` + body;
-    if (page !== 'economia') body += '<button class="text-button sources-link" data-open="economia">Calendario, costos y fuentes consultadas ↗</button>';
+    if (page !== 'economia' && page !== 'ajustes') body += '<button class="text-button sources-link" data-open="economia">Calendario, costos y fuentes consultadas ↗</button>';
     document.querySelector('#panel-content')!.innerHTML=(panelNotice?`<p class="panel-feedback" role="status">${escape(panelNotice)}</p>`:'')+body;
   }
   document.addEventListener('click', event => {
@@ -485,6 +524,8 @@ async function boot() {
   });
   document.addEventListener('change',event=>{
     const target=event.target as HTMLSelectElement;
+    if (target.name === 'graphics-quality') { setVisualSettings({...visualSettings,quality:target.value as VisualSettings['quality']}); return; }
+    if (target.hasAttribute('data-reduce-motion')) { setVisualSettings({...visualSettings,reducedMotion:(event.target as HTMLInputElement).checked}); return; }
     if (target.closest('#show-plan-form')) { updateShowDraft(); return; }
     if(target.dataset.renewalOffer) {
       const id=target.dataset.renewalOffer;
@@ -516,8 +557,8 @@ async function boot() {
   dialog.addEventListener('close',()=>document.querySelectorAll<HTMLButtonElement>('.bottom-nav button').forEach(b=>b.classList.toggle('selected',b.dataset.open==='sede')));
   document.querySelector('.brand')!.addEventListener('click',e=>{e.preventDefault();dialog.close();});
   render();
-  try { scene=new MurgaScene(document.querySelector('#scene')!,ready=>{modelReady=ready;}); scene.setCosmetics(stageCosmetics()); scene.update(state, theatrePreview); } catch { document.querySelector<HTMLElement>('#scene-notice')!.hidden=false; }
+  try { scene=new MurgaScene(document.querySelector('#scene')!,ready=>{modelReady=ready;}); scene.setVisualSettings(visualSettings); scene.setCosmetics(stageCosmetics()); scene.update(state, theatrePreview); syncScenePause(); } catch { document.querySelector<HTMLElement>('#scene-notice')!.hidden=false; }
   if(initialNotice) toast(initialNotice);
-  if(import.meta.hot) import.meta.hot.dispose(()=>{ scene?.dispose(); document.body.classList.remove('scene-expanded'); });
+  if(import.meta.hot) import.meta.hot.dispose(()=>{ scene?.dispose(); sceneVisibilityObserver.disconnect(); systemMotion.removeEventListener('change',onSystemMotion); document.body.classList.remove('scene-expanded'); });
 }
 void boot();

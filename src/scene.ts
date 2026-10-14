@@ -6,6 +6,7 @@ import { createStagePlaceholder } from './stage-placeholders';
 import { loadModularCharacter, OUTFIT_OPTIONS, type CharacterSelection, type ModularCharacter } from './character-system';
 import { memberAppearance, parseCosmetics, type CosmeticsState } from './cosmetics-state';
 import { attachStageInstruments } from './stage-instruments';
+import { DEFAULT_VISUAL_SETTINGS, FrameBudget, getRenderProfile, parseVisualSettings, type VisualSettings } from './render-policy';
 
 export type SceneVenue = 'rehearsal' | 'carnival' | 'theatre';
 export function getSceneVenue(state: State): SceneVenue {
@@ -64,18 +65,32 @@ export class MurgaScene {
   private fill = new THREE.DirectionalLight(0x9df6ef, 1.1);
   private motionPreference = matchMedia('(prefers-reduced-motion: reduce)');
   private reduced = this.motionPreference.matches;
+  private visualSettings: VisualSettings = { ...DEFAULT_VISUAL_SETTINGS };
+  private profile = getRenderProfile(this.visualSettings.quality, window.devicePixelRatio);
+  private frameBudget = new FrameBudget();
+  private externalPaused = false;
+  private contextLost = false;
+  private intersecting = typeof IntersectionObserver === 'undefined';
+  private hasSize = false;
+  private schedulerReady = false;
+  private loopActive = false;
+  private renderRequest: number | null = null;
+  private dirty = true;
+  private renderedFrames = 0;
+  private animationTime = 0;
   private state?: State;
   private performingUntil = 0;
-  private lastFrame = 0;
+  private lastFrame: number | null = null;
   private lastDiagnostics = 0;
   private observer: ResizeObserver;
+  private intersectionObserver?: IntersectionObserver;
   private disposed = false;
   private cosmetics = parseCosmetics(null);
 
   constructor(private host: HTMLElement, private onModel: (loaded: boolean) => void) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'low-power' });
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
-    this.renderer.shadowMap.enabled = true;
+    this.renderer.setPixelRatio(this.profile.pixelRatio);
+    this.renderer.shadowMap.enabled = this.profile.shadows;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -92,6 +107,7 @@ export class MurgaScene {
     this.controls.rotateSpeed = .55;
     this.controls.zoomSpeed = .7;
     this.controls.touches.TWO = THREE.TOUCH.DOLLY_ROTATE;
+    this.controls.addEventListener('change', this.onCameraChange);
     this.renderer.domElement.addEventListener('keydown', this.onCameraKey);
     this.scene.add(this.ambientLight);
     const sun = this.sun;
@@ -106,15 +122,96 @@ export class MurgaScene {
     this.setEnvironment('rehearsal');
     this.observer = new ResizeObserver(() => this.resize());
     this.observer.observe(host); this.resize();
-    this.renderer.setAnimationLoop((time) => this.frame(time));
     this.renderer.domElement.addEventListener('webglcontextlost', this.onLost);
     this.renderer.domElement.addEventListener('webglcontextrestored', this.onRestored);
     this.motionPreference.addEventListener('change', this.onMotionChange);
+    document.addEventListener('visibilitychange', this.onVisibilityChange);
+    if (typeof IntersectionObserver !== 'undefined') {
+      this.intersectionObserver = new IntersectionObserver(entries => {
+        if (this.disposed) return;
+        const entry = entries[entries.length - 1];
+        if (!entry) return;
+        this.intersecting = entry.isIntersecting && entry.intersectionRatio > 0;
+        this.refreshRenderState();
+      });
+      this.intersectionObserver.observe(host);
+    }
+    this.schedulerReady = true;
+    this.refreshRenderState();
   }
 
-  private onLost = (event: Event) => { event.preventDefault(); this.host.classList.add('context-lost'); };
-  private onRestored = () => { this.host.classList.remove('context-lost'); this.resize(); };
-  private onMotionChange = (event: MediaQueryListEvent) => { this.reduced = event.matches; };
+  private onLost = (event: Event) => {
+    event.preventDefault(); this.contextLost = true;
+    this.host.classList.add('context-lost'); this.refreshRenderState();
+  };
+  private onRestored = () => {
+    if (this.disposed) return;
+    this.contextLost = false; this.host.classList.remove('context-lost');
+    this.resize(); this.refreshRenderState(); this.invalidate();
+  };
+  private onMotionChange = () => {
+    this.reduced = this.motionPreference.matches || this.visualSettings.reducedMotion;
+    this.refreshRenderState(); this.invalidate();
+  };
+  private onVisibilityChange = () => this.refreshRenderState();
+  private onCameraChange = () => this.invalidate();
+
+  setVisualSettings(settings: VisualSettings) {
+    if (this.disposed) return;
+    this.visualSettings = parseVisualSettings(JSON.stringify(settings));
+    this.reduced = this.motionPreference.matches || this.visualSettings.reducedMotion;
+    this.frameBudget.reset();
+    this.lastFrame = null;
+    this.resize(); this.refreshRenderState(); this.invalidate();
+  }
+
+  /** External permission, e.g. while an opaque modal owns the screen. */
+  setPaused(paused: boolean) {
+    if (this.disposed || this.externalPaused === paused) return;
+    this.externalPaused = paused; this.refreshRenderState();
+  }
+
+  private canRender() {
+    return this.schedulerReady && !this.disposed && !document.hidden && !this.contextLost
+      && !this.externalPaused && this.intersecting && this.hasSize;
+  }
+
+  private refreshRenderState() {
+    if (!this.schedulerReady) return;
+    const active = this.canRender();
+    const running = active && !this.reduced;
+    this.host.dataset.renderState = !active ? 'paused' : running ? 'running' : 'still';
+    this.host.dataset.renderQuality = this.visualSettings.quality;
+    this.host.dataset.renderedFrames = String(this.renderedFrames);
+    this.host.dataset.fpsLimit = String(this.profile.fps);
+    this.host.dataset.pixelRatio = String(this.profile.pixelRatio);
+    if (running !== this.loopActive) {
+      this.loopActive = running;
+      this.frameBudget.reset(); this.lastFrame = null;
+      this.renderer.setAnimationLoop(running ? this.frame : null);
+    }
+    if (!active || running) {
+      if (this.renderRequest !== null) cancelAnimationFrame(this.renderRequest);
+      this.renderRequest = null;
+    }
+    if (!active) {
+      this.dirty = true;
+      this.frameBudget.reset(); this.lastFrame = null;
+    } else if (!running) this.invalidate();
+  }
+
+  private invalidate() {
+    this.dirty = true;
+    if (!this.canRender() || !this.reduced || this.renderRequest !== null) return;
+    this.renderRequest = requestAnimationFrame(this.renderStill);
+  }
+
+  private renderStill = (time: number) => {
+    this.renderRequest = null;
+    if (!this.canRender() || !this.reduced || !this.dirty) return;
+    if (!this.frameBudget.shouldRender(time, this.profile.fps)) { this.invalidate(); return; }
+    this.draw(time, false);
+  };
   private onCameraKey = (event: KeyboardEvent) => {
     if (event.altKey || event.ctrlKey || event.metaKey) return;
     const keys = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', '+', '=', '-', 'Home'];
@@ -298,6 +395,7 @@ export class MurgaScene {
       : venue === 'carnival' ? 'Tablado de carnaval al aire libre.' : 'Patio de ensayo al aire libre.';
     this.renderer.domElement.setAttribute('aria-label', `${name} Arrastrá para girar y usá zoom para acercarte. Batería detrás del coro; director al centro, adelante, mirando al elenco. Elenco 3D con cuerpo y vestuario compartidos.`);
     if (changed) this.resize(true);
+    this.invalidate();
   }
 
   private syncModels() {
@@ -323,20 +421,21 @@ export class MurgaScene {
       character.setAnimation(slot.role === 'director' ? 'conduct' : slot.role === 'chorister' ? 'sing' : 'percussion');
       character.update((slot.index % 5) * .02);
       slot.error = undefined;
-      this.spaceChorus(); this.reportModels();
+      this.spaceChorus(); this.reportModels(); this.invalidate();
     } catch (error) {
       if (!this.disposed && this.slots.includes(slot)) {
         this.clearSlot(slot); slot.loaded = false; slot.visualWidth = .46;
         slot.root.add(this.positionMarker(slot.role, slot.markerLabel));
         slot.assetKey = null;
         slot.error = error instanceof Error ? error.message : 'No se pudo cargar el personaje';
-        this.spaceChorus(); this.reportModels();
+        this.spaceChorus(); this.reportModels(); this.invalidate();
       }
       character?.dispose();
     }
   }
 
   setCosmetics(cosmetics: CosmeticsState) {
+    if (this.disposed) return;
     this.cosmetics = cosmetics;
     this.slots.forEach(slot => {
       const appearance = memberAppearance(cosmetics, slot.memberId, slot.index);
@@ -348,7 +447,7 @@ export class MurgaScene {
       }
       if (slot.loaded) slot.visualWidth = characterStageWidth(appearance);
     });
-    this.spaceChorus();
+    this.spaceChorus(); this.invalidate();
   }
 
   private reportModels() {
@@ -362,8 +461,20 @@ export class MurgaScene {
   }
 
   private resize(reset = false) {
+    if (this.disposed) return;
+    this.profile = getRenderProfile(this.visualSettings.quality, window.devicePixelRatio);
+    if (this.renderer.getPixelRatio() !== this.profile.pixelRatio) this.renderer.setPixelRatio(this.profile.pixelRatio);
+    if (this.renderer.shadowMap.enabled !== this.profile.shadows) {
+      this.renderer.shadowMap.enabled = this.profile.shadows;
+      this.scene.traverse(object => {
+        if (!(object instanceof THREE.Mesh)) return;
+        const materials = Array.isArray(object.material) ? object.material : [object.material];
+        materials.forEach(material => { material.needsUpdate = true; });
+      });
+    }
     const { width, height } = this.host.getBoundingClientRect();
-    if (!width || !height) return;
+    this.hasSize = width > 0 && height > 0;
+    if (!this.hasSize) { this.refreshRenderState(); return; }
     const previousOffset = this.camera.position.clone().sub(this.controls.target);
     const previousHomeDistance = this.homeDistance;
     this.renderer.setSize(width, height); this.camera.aspect = width / height;
@@ -384,33 +495,42 @@ export class MurgaScene {
     else this.camera.position.copy(this.controls.target).add(previousOffset.multiplyScalar(this.homeDistance / previousHomeDistance));
     this.camera.updateProjectionMatrix();
     this.controls.update();
-    this.renderer.render(this.scene, this.camera);
+    this.refreshRenderState(); this.invalidate();
   }
 
-  private frame(time: number) {
-    if (document.hidden || document.querySelector('dialog.wardrobe-viewer[open]') || time - this.lastFrame < 32) return;
-    const delta = Math.min((time - this.lastFrame) / 1000, .1);
-    this.lastFrame = time;
+  private frame = (time: number) => {
+    if (!this.canRender() || this.reduced) { this.refreshRenderState(); return; }
+    if (!this.frameBudget.shouldRender(time, this.profile.fps)) return;
+    this.draw(time, true);
+  };
+
+  private draw(time: number, animate: boolean) {
+    const delta = animate && this.lastFrame !== null ? Math.min(Math.max((time - this.lastFrame) / 1000, 0), .1) : 0;
+    this.lastFrame = animate ? time : null;
+    this.animationTime += delta * 1000;
+    const motionTime = this.animationTime;
     const energy = this.state ? this.state.members.reduce((sum, member) => sum + member.energy, 0) / 1700 : 1;
-    this.slots.forEach((slot, index) => {
+    if (animate) this.slots.forEach((slot, index) => {
       slot.root.position.copy(slot.anchor); slot.root.rotation.set(0, slot.heading, 0);
-      if (this.reduced) return;
       slot.character?.update(delta);
       if (slot.role === 'director') {
         // Bone animation drives the arms; the director takes small steps at the front.
-        const beat = time * (time < this.performingUntil ? .0084 : .0048);
+        const beat = motionTime * (motionTime < this.performingUntil ? .0084 : .0048);
         const strength = .5 + .5 * energy;
         slot.root.position.x += Math.sin(beat) * .18 * strength;
         slot.root.position.z += Math.sin(beat * 2) * .055 * strength;
         slot.root.rotation.y += Math.sin(beat * .5) * .14 * strength;
         slot.root.rotation.z = Math.sin(beat) * .055 * strength;
       } else if (slot.loaded && !slot.character) {
-        slot.root.rotation.z = Math.sin(time * (time < this.performingUntil ? .005 : .0013) + index * .7) * .025 * energy;
+        slot.root.rotation.z = Math.sin(motionTime * (motionTime < this.performingUntil ? .005 : .0013) + index * .7) * .025 * energy;
       }
     });
-    if (this.venue === 'theatre') this.theatre.update(time, this.reduced);
+    if (this.venue === 'theatre') this.theatre.update(motionTime, !animate);
     this.renderer.render(this.scene, this.camera);
-    if (time - this.lastDiagnostics > 1000) {
+    this.dirty = false;
+    this.renderedFrames++;
+    this.host.dataset.renderedFrames = String(this.renderedFrames);
+    if (!animate || this.renderedFrames === 1 || time - this.lastDiagnostics > 1000) {
       this.lastDiagnostics = time;
       this.host.dataset.renderCalls = String(this.renderer.info.render.calls);
       this.host.dataset.renderTriangles = String(this.renderer.info.render.triangles);
@@ -419,6 +539,7 @@ export class MurgaScene {
   }
 
   update(state: State, previewTheatre = false) {
+    if (this.disposed) return;
     this.state = state; this.setEnvironment(previewTheatre ? 'theatre' : getSceneVenue(state));
     const previous = new Map(this.slots.map(slot => [slot.memberId, slot]));
     const roles: VisualRole[] = state.members.map((member, index) => {
@@ -449,10 +570,10 @@ export class MurgaScene {
     });
     this.host.dataset.ensemble = `${chorusCount}/${roles.filter(role => ['bombo', 'redoblante', 'platillos'].includes(role)).length}/${roles.filter(role => role === 'director').length}`;
     previous.forEach(slot => { this.troupe.remove(slot.root); this.clearSlot(slot); });
-    this.syncModels();
+    this.syncModels(); this.invalidate();
   }
 
-  celebrate() { this.performingUntil = performance.now() + 3500; }
+  celebrate() { this.performingUntil = this.animationTime + 3500; this.invalidate(); }
 
   private clearSlot(slot: PositionSlot) {
     slot.disposeInstruments?.(); slot.disposeInstruments = undefined;
@@ -485,7 +606,14 @@ export class MurgaScene {
   }
 
   dispose() {
-    this.disposed = true; this.observer.disconnect(); this.renderer.setAnimationLoop(null);
+    if (this.disposed) return;
+    this.disposed = true; this.observer.disconnect(); this.intersectionObserver?.disconnect();
+    this.renderer.setAnimationLoop(null); this.loopActive = false;
+    if (this.renderRequest !== null) cancelAnimationFrame(this.renderRequest);
+    this.renderRequest = null;
+    this.host.dataset.renderState = 'paused';
+    document.removeEventListener('visibilitychange', this.onVisibilityChange);
+    this.controls.removeEventListener('change', this.onCameraChange);
     this.controls.dispose();
     this.renderer.domElement.removeEventListener('keydown', this.onCameraKey);
     this.slots.forEach(slot => this.clearSlot(slot));

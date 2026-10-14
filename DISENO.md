@@ -1,8 +1,16 @@
 # Director de Murga
 
-Documento de diseño del prototipo. La revisión vigente es **v9, del 7 de octubre de 2026**: añade una agenda de tablados con horarios, traslados y lluvia a los acuerdos de v8, el espectáculo de v7, la identidad y trayectoria de v6 y la vida comunitaria de v5. Las secciones v4 y v3 son antecedentes; sus versiones, calendarios y tareas pendientes no sustituyen el estado actual. Los valores concretos de balance están en `src/simulation.ts`. La verificación de v9 está documentada en [QA-CIRCUITO-V9.md](QA-CIRCUITO-V9.md): 81 pruebas automatizadas, recorrido de navegador y sincronización nativa. No acredita ejecución de binarios en teléfonos físicos.
+Documento de diseño del prototipo. La revisión vigente es **v10, del 14 de octubre de 2026**: añade ajustes visuales y gestión del renderizado sobre la campaña de v9. **El esquema de simulación y la clave de guardado siguen en v9**; las preferencias del dispositivo se almacenan aparte. Las secciones de versiones anteriores describen la evolución del juego y no sustituyen el estado actual. Los valores de balance están en `src/simulation.ts` y las prioridades de beta, en [BETA-PENDIENTES.md](BETA-PENDIENTES.md).
 
-## Revisión vigente v9: agenda de tablados
+## Revisión vigente v10: ajustes para jugar en móvil
+
+El jugador puede elegir calidad para escenario y taller: Ahorro limita a 20 FPS y densidad de píxel máxima 1, sin sombras; Equilibrado limita a 30 FPS y densidad 1,25, con sombras; Más fluidez limita a 60 FPS y densidad 1,5. La densidad nunca se fuerza por encima de la del dispositivo. Son topes, no garantías de FPS ni de ahorro de batería.
+
+Reducir movimiento se combina con la preferencia del sistema operativo: cualquiera de las dos detiene las animaciones, manteniendo disponibles cámara y personalización. El escenario suspende el renderizado mientras un panel o el taller lo cubren, al quedar fuera de vista, cuando la aplicación está oculta o ante pérdida de contexto gráfico. Al volver, retoma la presentación sin avanzar la jornada de gestión.
+
+Esta revisión no modifica candidatos, contratos, preparación, calendario, circuito, concurso ni cuentas. La campaña conserva `State.version = 9` y `director-de-murga-v9`; los ajustes visuales no se incorporan al historial de la murga. El registro de esta entrega está en [QA-MOVIL-V10.md](QA-MOVIL-V10.md): 85 pruebas aprobadas, recorrido de ajustes y pausas en navegador, compilación y sincronización nativa. La verificación anterior de campaña está en [QA-CIRCUITO-V9.md](QA-CIRCUITO-V9.md). Ninguna de esas comprobaciones acredita por sí sola ejecución en teléfonos físicos.
+
+## Base funcional v9: agenda de tablados
 
 ### Elegir una noche representativa
 

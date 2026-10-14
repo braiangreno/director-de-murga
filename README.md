@@ -2,7 +2,11 @@
 
 Prototipo de gestión sobre el Carnaval de Montevideo. TypeScript, Vite y Three.js, con proyectos nativos de Capacitor 8 para Android e iOS. El diseño y sus simplificaciones están en [DISENO.md](DISENO.md); las fechas verificadas, sus fuentes y la separación entre 2026 y 2027, en [CALENDARIO-FUENTES.md](CALENDARIO-FUENTES.md). La paleta propuesta y sus referencias primarias se documentan en [DIRECCION-ARTISTICA.md](DIRECCION-ARTISTICA.md).
 
-La revisión **v9**, actualizada el **7 de octubre de 2026**, comienza en **abril**, con 120 artistas ficticios disponibles y un elenco barrial de 17 integrantes. Podés negociar antes de contratar al equipo técnico. La fama es pública; la habilidad real permanece oculta, y una audición entrega un informe cualitativo. Las figuras pueden rechazar ofertas por falta de reputación o confianza. Tres niveles de propuesta permiten mejorar los honorarios sin sortear personas nuevas.
+La revisión **v10**, del **14 de octubre de 2026**, incorpora ajustes de calidad y movimiento para el escenario y el taller. Ofrece Ahorro (hasta 20 FPS, densidad máxima 1 y sin sombras), Equilibrado (hasta 30 FPS y densidad máxima 1,25) y Más fluidez (hasta 60 FPS y densidad máxima 1,5). Respeta densidades menores del dispositivo y la preferencia de reducir movimiento del sistema. El escenario suspende su renderizado cuando queda detrás de un panel o del taller, fuera de vista, con la aplicación oculta o sin contexto gráfico. Los límites son objetivos de renderizado, no mediciones de rendimiento en teléfonos.
+
+Las preferencias visuales se guardan por separado. **La simulación y el guardado de campaña continúan en v9**: esta entrega no reinicia la partida ni cambia su economía. La verificación de los ajustes está en [QA-MOVIL-V10.md](QA-MOVIL-V10.md); los pendientes y criterios para una primera beta están en [BETA-PENDIENTES.md](BETA-PENDIENTES.md).
+
+La campaña comienza en **abril**, con 120 artistas ficticios disponibles y un elenco barrial de 17 integrantes. Podés negociar antes de contratar al equipo técnico. La fama es pública; la habilidad real permanece oculta, y una audición entrega un informe cualitativo. Las figuras pueden rechazar ofertas por falta de reputación o confianza. Tres niveles de propuesta permiten mejorar los honorarios sin sortear personas nuevas.
 
 **Agenda de tablados** permite combinar de una a tres actuaciones entre seis escenarios ficticios, desde fines de enero. Cada función dura 40 minutos; el recorrido necesita 20 minutos dentro de una zona o 45 entre zonas. Preparar o vaciar la agenda es gratis; confirmar una salida consume una jornada. Las jornadas oficiales y las decisiones pendientes impiden salir al circuito. Horarios, zonas y costos son simplificaciones de la campaña, no itinerarios reales. Las fuentes y sus límites están en [CIRCUITO-FUENTES.md](CIRCUITO-FUENTES.md).
 
@@ -44,7 +48,7 @@ La migración previa **v7 → v8** considera confirmados los acuerdos existentes
 
 ## Jugar y desarrollar
 
-Verificación de **v9**: **81 pruebas aprobadas**, recorrido de agenda en escritorio y móvil a 390 × 844 CSS px, compilación web y sincronización Android/iOS. Alcance y límites en [QA-CIRCUITO-V9.md](QA-CIRCUITO-V9.md). No equivale a ejecutar binarios en teléfonos físicos. El recorrido anterior de contratos se conserva en [QA-CONTRATOS-V8.md](QA-CONTRATOS-V8.md).
+Verificación de **v10**: **85 pruebas aprobadas**, recorrido de ajustes, persistencia, pausa y cámara en navegador, revisión del panel a 390 × 844 CSS px, compilación web y sincronización Android/iOS. Alcance y límites en [QA-MOVIL-V10.md](QA-MOVIL-V10.md). No equivale a ejecutar binarios en teléfonos físicos. Los recorridos anteriores de circuito y contratos están en [QA-CIRCUITO-V9.md](QA-CIRCUITO-V9.md) y [QA-CONTRATOS-V8.md](QA-CONTRATOS-V8.md).
 
 Requiere Node.js 22 o superior. Desde esta carpeta:
 
@@ -61,7 +65,7 @@ npm run build
 npm run preview
 ```
 
-`test` ejecuta las pruebas de la simulación. `build` verifica TypeScript y genera `dist/`. `preview` sirve esa compilación en [localhost:4174](http://localhost:4174).
+`test` ejecuta las pruebas de simulación, personajes y política de renderizado. `build` verifica TypeScript y genera `dist/`. `preview` sirve esa compilación en [localhost:4174](http://localhost:4174).
 
 El juego utiliza recursos locales: escena y personajes 3D, iconos y fuentes DM Sans/Playfair Display incluidas mediante `@fontsource`. El paquete nativo está preparado para funcionar sin conexión después de instalarse y no solicita recursos de Meshy ni Google Fonts durante la partida; falta comprobarlo en binarios instalados en dispositivos. La versión web necesita que el servidor local permanezca activo; no incluye todavía un service worker para instalarla como PWA sin conexión. `npm ci` necesita acceso a Internet cuando las dependencias no estén en caché.
 
@@ -108,9 +112,9 @@ El archivo `ios/App/App/PrivacyInfo.xcprivacy` está incluido en los recursos de
 
 ## Estado del entorno y pendientes
 
-Inspección del 29/09/2026 en Windows: Node 24.1.0 y Java 11.0.30 disponibles; `ANDROID_HOME` y `ANDROID_SDK_ROOT` no definidos, `adb` ausente del PATH y Android SDK/Studio no encontrados en las ubicaciones habituales. Los scaffolds Android e iOS se generaron correctamente y se verificó el proceso de compilación web y sincronización de ambas plataformas. Después de modificar esta revisión, repetir `npm test` y `npm run mobile:sync` para copiar el estado actual. `cap doctor` confirmó dependencias 8.5.2 y una estructura Android correcta; su comprobación iOS queda limitada por la ausencia de Xcode en Windows. Ese diagnóstico no compila ni ejecuta la aplicación.
+Inspección actualizada el **14/10/2026** en Windows: Node 24.1.0 y Java 11.0.30 disponibles; `ANDROID_HOME` y `ANDROID_SDK_ROOT` no definidos, `adb` ausente del PATH y Android SDK/Studio no encontrados en las ubicaciones habituales. Gradle 8.14.3 ya está disponible en la caché, pero las fuentes nativas requieren JDK 21. Se verificaron de nuevo compilación web y sincronización de ambas plataformas. Después de modificar código, repetir `npm test` y `npm run mobile:sync` para copiar el estado actual. Los diagnósticos y la sincronización no compilan ni ejecutan la aplicación nativa; iOS necesita Xcode en macOS.
 
-Queda pendiente compilar y probar los binarios nativos con los entornos indicados, comprobar guardado y reanudación en teléfonos reales, revisar rendimiento con los futuros recursos 3D, sustituir los splash nativos de plantilla y configurar firma/distribución. Esta revisión no aporta nuevos binarios Android o iOS. Una compilación web o una sincronización exitosa no acreditan pruebas nativas.
+Queda pendiente compilar y probar los binarios nativos con los entornos indicados, comprobar guardado y reanudación en teléfonos reales, revisar rendimiento con los recursos 3D actuales, sustituir los splash nativos de plantilla y configurar firma/distribución. Esta revisión no aporta nuevos binarios Android o iOS. Una compilación web o una sincronización exitosa no acreditan pruebas nativas.
 
 ## Recursos incluidos
 
