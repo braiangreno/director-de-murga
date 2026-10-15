@@ -10,7 +10,7 @@ import './management.css';
 import { Preferences } from '@capacitor/preferences';
 import { MurgaScene, getSceneVenue } from './scene';
 import { type CharacterSelection } from './character-system';
-import { parseCosmetics, memberAppearance, dressEnsemble } from './cosmetics-state';
+import { memberAppearance, dressEnsemble } from './cosmetics-state';
 import { openWardrobeViewer } from './wardrobe-viewer';
 import { recruitmentPanel, costumePanel, researchPanel, fameLabel, type MarketFilters } from './management-panels';
 import { communityPanel, decisionPanel } from './community-panel';
@@ -20,13 +20,18 @@ import { contractPanel, contractBrief } from './contracts-panel';
 import { circuitPanel, circuitBrief } from './circuit-panel';
 import { parseVisualSettings, type VisualSettings } from './render-policy';
 import { settingsPanel } from './settings-panel';
+import { createBackup, parseBackup, serializeBackup, backupFilename, MAX_BACKUP_BYTES } from './backup';
+import { applyBackup, getPreviousBackup, recoverPendingRestore } from './backup-storage';
+import { backupPanel, type BackupPanelModel } from './backup-panel';
+import { exportBackupFile } from './backup-files';
+import { loadCampaignStorage } from './load-campaign';
 import { setCircuitPlan, performCircuit } from './simulation';
 import { contactMember, getRenewalSummary, renewMember, renewAllWilling, type RecruitmentOffer } from './simulation';
 import { configureShow, developShow, getShowSummary, setRehearsalFocus, validateShowPlan, type ShowSectionId, type ShowWork, type RehearsalFocus } from './simulation';
 import { setIdentity, validateIdentity } from './simulation';
 import { resolveDecision, getPendingDecision, getCommunitySummary } from './simulation';
 import { scoutMember, nextSeason, getSeasonRenewalCost, getMemberReport, getRecruitmentAvailability, getCostumeProposals, chooseCostumeProposal, TOTAL_DAYS, REHEARSALS_START_DAY } from './simulation';
-import { createGame, performAction, recruit, assignCord, buyUpgrade, buyLicense, getStats, getCalendar, getActionPreview, getActionAvailability, getContestSummary, getStandings, getUpgradeCost, parseSave, refreshCandidates, hireCreative, startSeason, revealEliminatedFallos, getProductionSummary, CREATIVE_ROLES, CREATIVE_ROLE_LABELS, CREATIVE_CANDIDATES, MEMBER_ROLE_LABELS, CORDS, EVENTS, MAX_UPGRADE, type State, type Action, type Upgrade, type CreativeRole, type Member } from './simulation';
+import { performAction, recruit, assignCord, buyUpgrade, buyLicense, getStats, getCalendar, getActionPreview, getActionAvailability, getContestSummary, getStandings, getUpgradeCost, refreshCandidates, hireCreative, startSeason, revealEliminatedFallos, getProductionSummary, CREATIVE_ROLES, CREATIVE_ROLE_LABELS, CREATIVE_CANDIDATES, MEMBER_ROLE_LABELS, CORDS, EVENTS, MAX_UPGRADE, type State, type Action, type Upgrade, type CreativeRole, type Member } from './simulation';
 
 const paths: Record<string,string> = {
   mask:'<path d="M3 5q9 5 18 0v7c0 6-9 10-9 10S3 18 3 12Z"/><path d="m6 10 3 1-3 1m12-2-3 1 3 1M8 16q4 4 8 0"/>',
@@ -62,7 +67,6 @@ const signed = (n:number, suffix='') => `${n > 0 ? '+' : ''}${Math.round(n)}${su
 const KEY = 'director-de-murga-v9';
 const VISUAL_KEY = 'director-de-murga-visual-settings-v1';
 const WARDROBE_KEY = 'director-de-murga-character-system-v1';
-const LEGACY_KEYS = ['director-de-murga-v8', 'director-de-murga-v7', 'director-de-murga-v6', 'director-de-murga-v5', 'director-de-murga-v4', 'director-de-murga-v3', 'director-de-murga-v2', 'director-de-murga-v1'];
 const CREATIVE_DETAILS: Record<CreativeRole, {icon: string; brief: string; effect: string}> = {
   lyrics: {icon: 'book', brief: 'Encontrá la voz de tu espectáculo: humor, crítica y una historia para cantar.', effect: 'Aporta calidad a los textos.'},
   arrangements: {icon: 'music', brief: 'Transformá las melodías en un coro que emocione y se entienda con la batería.', effect: 'Mejora voces y arreglos, y la coordinación musical.'},
@@ -84,39 +88,28 @@ const upgrades: {id:Upgrade;name:string;icon:string;weight:number;description:st
   {id:'costumes',name:'Vestuario',icon:'shirt',weight:2,description:'Color, siluetas y detalles que cuentan tu historia.'},
   {id:'staging',name:'Puesta en escena',icon:'mask',weight:2,description:'Que cada movimiento acompañe lo que canta la murga.'},
 ];
+function showRecoveryGate(reason:string) {
+  document.querySelector<HTMLDivElement>('#app')!.innerHTML = `<main class="recovery-gate"><div class="eyebrow">CUIDAMOS TU PARTIDA</div><h1>No pudimos completar la carga.</h1><p>${escape(reason)}</p><p>La partida queda detenida hasta que podamos leer y recuperar sus datos.</p><button type="button" class="primary-button" id="retry-recovery">Reintentar recuperación</button></main>`;
+  document.querySelector('#retry-recovery')!.addEventListener('click', () => window.location.reload());
+}
 async function boot() {
-  let state = createGame();
-  let cosmetics = parseCosmetics(null);
+  const recovery = await recoverPendingRestore(Preferences);
+  if (recovery.status === 'blocked') { showRecoveryGate(recovery.reason); return; }
+  let loaded;
+  try { loaded=await loadCampaignStorage(Preferences); }
+  catch (error) { showRecoveryGate(error instanceof Error?error.message:'No se pudieron leer los datos guardados. Volvé a intentarlo.'); return; }
+  const backupView: BackupPanelModel = {pending:null,pendingSource:null,hasPrevious:false,busy:false,message:'',error:false};
+  let storageBlocked = false;
+  try { backupView.hasPrevious = Boolean(await getPreviousBackup(Preferences)); }
+  catch { backupView.message = 'No se pudo consultar la copia anterior. Volvé a abrir el juego para intentarlo de nuevo.'; backupView.error = true; }
+  let {state,cosmetics}=loaded;
   let visualSettings = parseVisualSettings(null), visualSaveWarning = '';
   let visualSaveQueue = Promise.resolve();
   try { visualSettings = parseVisualSettings((await Preferences.get({key:VISUAL_KEY})).value); } catch { visualSaveWarning = 'No se pudieron leer las preferencias. Se usarán los valores iniciales.'; }
   const systemMotion = matchMedia('(prefers-reduced-motion: reduce)');
   let activeWardrobeMember = state.members[0].id;
   let wardrobeSaveQueue = Promise.resolve();
-  try { cosmetics = parseCosmetics((await Preferences.get({ key: WARDROBE_KEY })).value); } catch { /* Cosmetic defaults do not affect the season save. */ }
-  let saveWarning = '', initialNotice = '';
-  try {
-    const {value} = await Preferences.get({key: KEY});
-    const saved = parseSave(value);
-    if (saved) state = saved;
-    else {
-      if(value) await Preferences.set({key: `${KEY}-recovery-${Date.now()}`, value});
-      let migrated = false;
-      for (const key of LEGACY_KEYS) {
-        const legacy = await Preferences.get({key});
-        const restored = parseSave(legacy.value);
-        if (!restored) continue;
-        state = restored;
-        await Preferences.set({key: KEY, value: JSON.stringify(state)});
-        initialNotice = 'Partida actualizada: conservamos el elenco y el progreso. El guardado anterior sigue respaldado.';
-        migrated = true;
-        break;
-      }
-      if (!migrated && value) {
-        initialNotice = 'No se pudo recuperar el guardado actual. Conservamos una copia para recuperación en este dispositivo.';
-      }
-    }
-  } catch { initialNotice = 'No se pudo leer el guardado. Podés jugar, pero tu progreso podría no conservarse.'; }
+  let saveWarning = '', initialNotice = loaded.notice || (recovery.status === 'recovered' ? 'Recuperamos una restauración interrumpida. Tu partida está lista para continuar.' : '');
   state.members.forEach((member,index) => { cosmetics.members[member.id] ??= memberAppearance(cosmetics,member.id,index); });
   let page = 'sede', replacement = state.members[0].id, modelReady = false, panelNotice = '';
   const market: MarketFilters = { query: '', fame: 'all', sort: 'cost', page: 0, offer: 'standard' };
@@ -134,6 +127,80 @@ async function boot() {
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
     <dialog id="panel"><div class="panel-header"><div><div class="eyebrow" id="panel-kicker"></div><h2 id="panel-title"></h2></div><button class="icon-button" data-close aria-label="Cerrar panel">${icon('close')}</button></div><div class="panel-content" id="panel-content"></div></dialog>`;
   const dialog = document.querySelector<HTMLDialogElement>('#panel')!;
+  function updateBackupPanel(focus?:string) {
+    if (page !== 'respaldos' || !dialog.open) return;
+    renderPanel();
+    if (focus) {
+      const element=dialog.querySelector<HTMLElement>(focus);
+      element?.focus({preventScroll:true});
+      if (focus==='#backup-preview-heading') element?.scrollIntoView({block:'start'});
+    }
+  }
+  function backupFeedback(message:string,error=false) { backupView.message=message; backupView.error=error; }
+  async function exportCurrentBackup() {
+    if (backupView.busy) return;
+    backupView.busy=true; backupFeedback('Preparando tu respaldo…'); updateBackupPanel();
+    try {
+      // Export the live state, including choices whose autosave may have failed.
+      const backup=createBackup(state,cosmetics);
+      const result=await exportBackupFile(serializeBackup(backup),backupFilename(backup));
+      backupFeedback(result.method==='share'?'Se cerró el menú para compartir. Comprobá que guardaste el archivo en el destino elegido.':'Descarga iniciada. Conservá el archivo JSON para restaurarlo en este u otro dispositivo.');
+    } catch (error) { backupFeedback(error instanceof Error?error.message:'No pudimos exportar la partida. Volvé a intentarlo.',true); }
+    finally { backupView.busy=false; updateBackupPanel('[data-backup-export]'); }
+  }
+  async function previewBackupFile(file:File) {
+    if (backupView.busy || storageBlocked) return;
+    backupView.busy=true; backupView.pending=null; backupView.pendingSource=null; backupView.fileName=undefined;
+    backupFeedback('Revisando el archivo…'); updateBackupPanel();
+    try {
+      if (file.size > MAX_BACKUP_BYTES) throw new Error('El archivo supera el tamaño máximo de 5 MiB. Elegí un respaldo de Director de Murga.');
+      backupView.pending=parseBackup(await file.text()); backupView.pendingSource='file'; backupView.fileName=file.name;
+      backupFeedback('Archivo válido. Revisá la murga antes de restaurar. Tu partida todavía no cambió.');
+    } catch (error) { backupFeedback(error instanceof Error?error.message:'No pudimos leer el archivo. Tu partida sigue igual.',true); }
+    finally { backupView.busy=false; updateBackupPanel(backupView.pending?'#backup-preview-heading':'[data-backup-file]'); }
+  }
+  async function previewPreviousBackup() {
+    if (backupView.busy || storageBlocked) return;
+    backupView.busy=true; backupView.pending=null; backupView.pendingSource=null; backupView.fileName=undefined;
+    backupFeedback('Buscando la partida anterior…'); updateBackupPanel();
+    try {
+      const previous=await getPreviousBackup(Preferences);
+      backupView.hasPrevious=Boolean(previous); backupView.pending=previous; backupView.pendingSource=previous?'previous':null;
+      backupFeedback(previous?'Revisá la partida anterior. Para volver a ella, confirmá la restauración.':'Todavía no hay una copia anterior válida en este dispositivo.');
+    } catch { backupFeedback('No pudimos leer la copia anterior. Tu partida sigue igual; volvé a intentarlo.',true); }
+    finally { backupView.busy=false; updateBackupPanel(backupView.pending?'#backup-preview-heading':'[data-backup-previous]'); }
+  }
+  async function restoreSelectedBackup() {
+    if (backupView.busy || storageBlocked || !backupView.pending) return;
+    const incoming=backupView.pending;
+    backupView.busy=true; backupFeedback('Conservando tu partida y restaurando el respaldo…'); updateBackupPanel();
+    try {
+      await Promise.all([saveQueue,wardrobeSaveQueue]);
+      const result=await applyBackup(Preferences,incoming,createBackup(state,cosmetics));
+      if (result.status==='applied') {
+        state=result.backup.campaign; cosmetics=result.backup.cosmetics;
+        state.members.forEach((member,index)=>{cosmetics.members[member.id]??=memberAppearance(cosmetics,member.id,index);});
+        replacement=activeWardrobeMember=state.members[0].id;
+        renewalOffers={}; market.query=''; market.fame='all'; market.sort='cost'; market.page=0; market.offer='standard';
+        creativeRole=CREATIVE_ROLES.find(role=>!state.creativeTeam[role])??'lyrics'; theatrePreview=false;
+        backupView.pending=null; backupView.pendingSource=null; backupView.fileName=undefined; backupView.hasPrevious=true;
+        saveWarning=''; panelNotice=''; render();
+        backupFeedback(`Restauramos ${state.identity.name}. La partida reemplazada quedó en «Ver copia previa».`);
+        toast('Partida restaurada. Podés continuar desde la misma jornada del respaldo.');
+        if(result.cleanupPending) {
+          const cleanup=await recoverPendingRestore(Preferences);
+          if(cleanup.status==='blocked') {
+            storageBlocked=true; backupView.blocked=true;
+            backupFeedback('La partida se restauró, pero falta terminar la recuperación del almacenamiento. Podés exportar la partida visible y reintentar antes de continuar.',true);
+          }
+        }
+      } else {
+        storageBlocked=result.status==='blocked'; backupView.blocked=storageBlocked;
+        backupFeedback(result.reason,true);
+      }
+    } catch { backupFeedback('No pudimos preparar la restauración. Tu partida en pantalla sigue igual.',true); }
+    finally { backupView.busy=false; updateBackupPanel(storageBlocked?'[data-backup-retry]':backupView.pending?'[data-backup-restore]':'[data-backup-export]'); }
+  }
   function syncScenePause() { scene?.setPaused(Boolean(document.querySelector('dialog[open]'))); }
   const sceneVisibilityObserver = new MutationObserver(syncScenePause);
   sceneVisibilityObserver.observe(dialog,{attributes:true,attributeFilter:['open']});
@@ -180,6 +247,7 @@ async function boot() {
   }
   document.querySelector('.scene-toolbar')!.insertAdjacentHTML('afterbegin', `<button data-wardrobe aria-label="Abrir taller de vestuario" title="Taller de vestuario">${icon('shirt')}<span>Vestuario</span></button>`);
   function saveCosmetics() {
+    if (backupView.busy || storageBlocked) return;
     const activeIds = new Set([...state.members, ...state.candidates].map(member => member.id));
     cosmetics.members = Object.fromEntries(Object.entries(cosmetics.members).filter(([id]) => activeIds.has(id)));
     scene?.setCosmetics(stageCosmetics());
@@ -220,10 +288,12 @@ async function boot() {
     const el = document.querySelector<HTMLElement>('#toast')!; el.textContent = text; el.classList.add('visible'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('visible'), 5200);
   }
   function save() {
+    if (backupView.busy || storageBlocked) return;
     const value = JSON.stringify(state);
     saveQueue = saveQueue.then(async () => { await Preferences.set({ key: KEY, value }); if (saveWarning) { saveWarning = ''; render(); } }).catch(() => { saveWarning = 'No pudimos guardar. Mantené la app abierta para conservar esta partida.'; render(); toast(saveWarning); });
   }
   function commit(next: State) {
+    if (backupView.busy || storageBlocked) return;
     const active=document.activeElement as HTMLElement | null;
     const focusedMember=active?.dataset.member;
     const focusedVenue=active?.dataset.toggleVenue;
@@ -311,6 +381,7 @@ async function boot() {
     scene?.update(state, theatrePreview);
   }
   function openPanel(name: string) {
+    if (backupView.busy || storageBlocked) return;
     if (name === 'sede') { dialog.close(); return; }
     if (name === 'produccion') creativeRole = CREATIVE_ROLES.find(role => !state.creativeTeam[role]) ?? creativeRole;
     page = name; panelNotice = ''; renderPanel(); if (!dialog.open) dialog.showModal();
@@ -348,12 +419,15 @@ async function boot() {
   }
   function renderPanel() {
     const titles:Record<string,[string,string]>={ajustes:['A TU RITMO','Ajustes del juego'],circuito:['DE TABLADO EN TABLADO','La agenda de actuaciones'],contratos:['CADA AÑO, UN NUEVO ACUERDO','Los acuerdos del elenco'],espectaculo:['LETRA, MÚSICA Y ENSAYO','Nuestro espectáculo'],trayectoria:['DE CARNAVAL EN CARNAVAL','Historia de la murga'],identidad:['EL NOMBRE QUE VAMOS A CANTAR','Nuestra identidad'],comunidad:['SE HACE ENTRE TODOS','La vida de la murga'],decision:['LA LIBRETA DEL DIRECTOR','Una decisión del año'],produccion:['DE LA IDEA AL ESCENARIO','Tu equipo creativo'],plantel:['13 VOCES · 3 INSTRUMENTOS · 1 DIRECCIÓN','El plantel'],fichajes:['NOMBRES, HISTORIAS Y CONVERSACIONES','Mercado de integrantes'],vestuario:['DISEÑO Y CONFECCIÓN','El vestuario'],economia:['FUENTES Y PRESUPUESTOS','El costo del carnaval'],taller:['EL OFICIO DE EMOCIONAR','El taller'],agenda:['DE ABRIL A MARZO','La temporada'],help:['TU PRIMER CARNAVAL','Guía del director'],resultado:['BAJÓ EL TELÓN','Resultado de temporada'],reset:['LA MURGA SIGUE','La próxima temporada']};
+    titles.respaldos=['TU HISTORIA SIGUE','Partidas y respaldos'];
     const [kicker,title] = titles[page]??titles.help;
     document.querySelector('#panel-kicker')!.textContent=kicker; document.querySelector('#panel-title')!.textContent=title;
     dialog.classList.toggle('production-panel', page === 'produccion');
     let body = '';
     const locked = !state.productionStarted || state.status !== 'playing';
-    if(page==='ajustes') {
+    if(page==='respaldos') {
+      body=backupPanel(state,backupView);
+    } else if(page==='ajustes') {
       body=settingsPanel(visualSettings,systemMotion.matches,visualSaveWarning);
     } else if(page==='circuito') {
       body=circuitPanel(state);
@@ -406,13 +480,20 @@ async function boot() {
       <p class="fineprint">La partida se guarda en este dispositivo. ${modelReady?'Elenco con cuerpo común, vestuario intercambiable y animaciones. Personalizá a cada integrante en el taller.':'El elenco 3D está cargando; si falla, muestra figuras provisionales.'}</p><button class="outline-button" data-open="reset">${icon('refresh')} Próxima temporada</button>`;
     }
     if (page === 'taller') body = showBrief(state) + `<button class="outline-button team-summary" data-open="vestuario">${icon('shirt')} Diseño y confección del vestuario ${icon('arrow')}</button>` + body;
-    if (page !== 'economia' && page !== 'ajustes') body += '<button class="text-button sources-link" data-open="economia">Calendario, costos y fuentes consultadas ↗</button>';
+    if (!['economia','ajustes','respaldos'].includes(page)) body += '<button class="text-button sources-link" data-open="economia">Calendario, costos y fuentes consultadas ↗</button>';
     document.querySelector('#panel-content')!.innerHTML=(panelNotice?`<p class="panel-feedback" role="status">${escape(panelNotice)}</p>`:'')+body;
+    dialog.querySelector<HTMLButtonElement>('[data-close]')!.disabled=backupView.busy||storageBlocked;
   }
   document.addEventListener('click', event => {
     const target=(event.target as Element).closest<HTMLButtonElement>('button');
     if(!target||target.disabled) return;
-    if(target.dataset.open) openPanel(target.dataset.open);
+    if(backupView.busy || storageBlocked&&!target.hasAttribute('data-backup-export')&&!target.hasAttribute('data-backup-retry')) return;
+    if(target.hasAttribute('data-backup-export')) void exportCurrentBackup();
+    else if(target.hasAttribute('data-backup-previous')) void previewPreviousBackup();
+    else if(target.hasAttribute('data-backup-restore')) void restoreSelectedBackup();
+    else if(target.hasAttribute('data-backup-retry')) window.location.reload();
+    else if(target.hasAttribute('data-backup-cancel')) { backupView.pending=null; backupView.pendingSource=null; backupView.fileName=undefined; backupFeedback('Selección cancelada. Tu partida sigue igual.'); updateBackupPanel('[data-backup-file]'); }
+    else if(target.dataset.open) openPanel(target.dataset.open);
     else if(target.dataset.panel) openPanel(target.dataset.panel);
     else if(target.hasAttribute('data-wardrobe')) showWardrobe();
     else if(target.dataset.camera) { if(target.dataset.camera === 'reset') scene?.resetCamera(); else scene?.zoomCamera(target.dataset.camera === 'in' ? 1 / 1.2 : 1.2); }
@@ -471,6 +552,7 @@ async function boot() {
     else if(target.hasAttribute('data-reset')) { const next=nextSeason(state); if(next.season===state.season) { toast(next.lastMessage); return; } state=next; renewalOffers={}; replacement=state.members[0].id; market.page=0; creativeRole='lyrics'; theatrePreview=false; save(); render(); openPanel('contratos'); toast(state.lastMessage); }
   });
   document.addEventListener('submit', event => {
+    if (backupView.busy || storageBlocked) { event.preventDefault(); return; }
     const form = event.target;
     if (!(form instanceof HTMLFormElement)) return;
     if (form.id === 'show-plan-form') {
@@ -513,6 +595,7 @@ async function boot() {
     if (warning) warning.hidden=!dirty;
   }
   document.addEventListener('input',event=>{
+    if (backupView.busy || storageBlocked) return;
     const target=event.target as HTMLInputElement;
     if (target.closest('#show-plan-form')) { updateShowDraft(); return; }
     if(target.id!=='market-query') return;
@@ -523,7 +606,13 @@ async function boot() {
     if(cursor!==null) input?.setSelectionRange(cursor,cursor);
   });
   document.addEventListener('change',event=>{
+    if (backupView.busy || storageBlocked) return;
     const target=event.target as HTMLSelectElement;
+    if (target.hasAttribute('data-backup-file')) {
+      const input=event.target as HTMLInputElement, file=input.files?.[0]; input.value='';
+      if(file) void previewBackupFile(file);
+      return;
+    }
     if (target.name === 'graphics-quality') { setVisualSettings({...visualSettings,quality:target.value as VisualSettings['quality']}); return; }
     if (target.hasAttribute('data-reduce-motion')) { setVisualSettings({...visualSettings,reducedMotion:(event.target as HTMLInputElement).checked}); return; }
     if (target.closest('#show-plan-form')) { updateShowDraft(); return; }
@@ -553,9 +642,10 @@ async function boot() {
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
     }
   });
-  dialog.addEventListener('click',e=>{if(e.target===dialog){const r=dialog.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)dialog.close();}});
+  dialog.addEventListener('cancel',e=>{if(backupView.busy||storageBlocked)e.preventDefault();});
+  dialog.addEventListener('click',e=>{if(!backupView.busy&&!storageBlocked&&e.target===dialog){const r=dialog.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)dialog.close();}});
   dialog.addEventListener('close',()=>document.querySelectorAll<HTMLButtonElement>('.bottom-nav button').forEach(b=>b.classList.toggle('selected',b.dataset.open==='sede')));
-  document.querySelector('.brand')!.addEventListener('click',e=>{e.preventDefault();dialog.close();});
+  document.querySelector('.brand')!.addEventListener('click',e=>{e.preventDefault();if(!backupView.busy&&!storageBlocked)dialog.close();});
   render();
   try { scene=new MurgaScene(document.querySelector('#scene')!,ready=>{modelReady=ready;}); scene.setVisualSettings(visualSettings); scene.setCosmetics(stageCosmetics()); scene.update(state, theatrePreview); syncScenePause(); } catch { document.querySelector<HTMLElement>('#scene-notice')!.hidden=false; }
   if(initialNotice) toast(initialNotice);

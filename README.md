@@ -2,9 +2,15 @@
 
 Prototipo de gestión sobre el Carnaval de Montevideo. TypeScript, Vite y Three.js, con proyectos nativos de Capacitor 8 para Android e iOS. El diseño y sus simplificaciones están en [DISENO.md](DISENO.md); las fechas verificadas, sus fuentes y la separación entre 2026 y 2027, en [CALENDARIO-FUENTES.md](CALENDARIO-FUENTES.md). La paleta propuesta y sus referencias primarias se documentan en [DIRECCION-ARTISTICA.md](DIRECCION-ARTISTICA.md).
 
-La revisión **v10**, del **14 de octubre de 2026**, incorpora ajustes de calidad y movimiento para el escenario y el taller. Ofrece Ahorro (hasta 20 FPS, densidad máxima 1 y sin sombras), Equilibrado (hasta 30 FPS y densidad máxima 1,25) y Más fluidez (hasta 60 FPS y densidad máxima 1,5). Respeta densidades menores del dispositivo y la preferencia de reducir movimiento del sistema. El escenario suspende su renderizado cuando queda detrás de un panel o del taller, fuera de vista, con la aplicación oculta o sin contexto gráfico. Los límites son objetivos de renderizado, no mediciones de rendimiento en teléfonos.
+La revisión **v11**, del **15 de octubre de 2026**, añade **Ajustes → Partidas y respaldos**. Permite exportar campaña y apariencias, elegir un archivo JSON de hasta **5 MiB**, revisar su murga, temporada, jornada y caja, y confirmar **Restaurar esta partida**. Elegir un archivo o cancelar la selección no modifica la campaña. Antes de reemplazarla se conserva una copia previa, disponible para revisar y restaurar con otra confirmación. Los ajustes gráficos permanecen en el dispositivo.
 
-Las preferencias visuales se guardan por separado. **La simulación y el guardado de campaña continúan en v9**: esta entrega no reinicia la partida ni cambia su economía. La verificación de los ajustes está en [QA-MOVIL-V10.md](QA-MOVIL-V10.md); los pendientes y criterios para una primera beta están en [BETA-PENDIENTES.md](BETA-PENDIENTES.md).
+El respaldo usa formato `director-de-murga-backup`, versión **1**, e incluye la campaña v9 y sus apariencias. La restauración espera los guardados pendientes y conserva un registro de recuperación: si se interrumpe antes de confirmar las escrituras, repone los datos anteriores; si ya estaba confirmada, solo completa la limpieza. Una lectura fallida al iniciar bloquea la carga y ofrece reintentar, sin habilitar una partida nueva que pueda sobrescribir datos. La memoria cambia a la partida importada únicamente cuando la restauración quedó aplicada.
+
+En navegador, exportar solicita una descarga; en la app nativa prepara un archivo en caché y abre el menú para compartir o guardar. Abrir o cerrar ese menú no confirma que el usuario haya conservado el archivo. La transferencia completa entre instalaciones sigue pendiente de verificación, con los límites detallados en [QA-RESPALDOS-V11.md](QA-RESPALDOS-V11.md).
+
+Se conservan los ajustes visuales de **v10**: Ahorro (hasta 20 FPS, densidad máxima 1 y sin sombras), Equilibrado (hasta 30 FPS y densidad máxima 1,25) y Más fluidez (hasta 60 FPS y densidad máxima 1,5). Se respetan densidades menores del dispositivo y la preferencia de reducir movimiento del sistema. El escenario suspende su renderizado cuando queda detrás de un panel o del taller, fuera de vista, con la aplicación oculta o sin contexto gráfico. Los límites son objetivos de renderizado, no mediciones de rendimiento en teléfonos.
+
+Las preferencias visuales se guardan por separado. **La simulación y el guardado de campaña continúan en v9**: v11 no cambia la economía ni reinicia la partida por actualizar el juego. La verificación anterior de ajustes está en [QA-MOVIL-V10.md](QA-MOVIL-V10.md); los pendientes y criterios para una primera beta están en [BETA-PENDIENTES.md](BETA-PENDIENTES.md).
 
 La campaña comienza en **abril**, con 120 artistas ficticios disponibles y un elenco barrial de 17 integrantes. Podés negociar antes de contratar al equipo técnico. La fama es pública; la habilidad real permanece oculta, y una audición entrega un informe cualitativo. Las figuras pueden rechazar ofertas por falta de reputación o confianza. Tres niveles de propuesta permiten mejorar los honorarios sin sortear personas nuevas.
 
@@ -48,7 +54,9 @@ La migración previa **v7 → v8** considera confirmados los acuerdos existentes
 
 ## Jugar y desarrollar
 
-Verificación de **v10**: **85 pruebas aprobadas**, recorrido de ajustes, persistencia, pausa y cámara en navegador, revisión del panel a 390 × 844 CSS px, compilación web y sincronización Android/iOS. Alcance y límites en [QA-MOVIL-V10.md](QA-MOVIL-V10.md). No equivale a ejecutar binarios en teléfonos físicos. Los recorridos anteriores de circuito y contratos están en [QA-CIRCUITO-V9.md](QA-CIRCUITO-V9.md) y [QA-CONTRATOS-V8.md](QA-CONTRATOS-V8.md).
+Verificación de **v11**: **109 pruebas aprobadas**, incluidas 15 nuevas de respaldo/recuperación y 9 de carga, compilación web y sincronización Android/iOS. El panel se revisó en escritorio y a 390 × 844 CSS px, sin desborde horizontal y con controles de 46/48 px. La importación por interfaz **no se ejecutó**: la extensión de Chrome denegó `setFiles` porque no estaba habilitado su permiso de acceso a URL de archivo; no se intentó eludirlo. Exportar solicitó la descarga sin error de la aplicación, pero la espera del evento de descarga venció y la herramienta no confirmó un archivo recibido. Por tanto, no se acredita un recorrido completo de exportación y restauración en navegador. Alcance en [QA-RESPALDOS-V11.md](QA-RESPALDOS-V11.md).
+
+La exportación nativa tuvo siete comprobaciones con servicios simulados, fuera del conteo de 109; no se compiló ni ejecutó un APK/IPA. Los recorridos anteriores se conservan en [QA-MOVIL-V10.md](QA-MOVIL-V10.md), [QA-CIRCUITO-V9.md](QA-CIRCUITO-V9.md) y [QA-CONTRATOS-V8.md](QA-CONTRATOS-V8.md).
 
 Requiere Node.js 22 o superior. Desde esta carpeta:
 
@@ -65,7 +73,7 @@ npm run build
 npm run preview
 ```
 
-`test` ejecuta las pruebas de simulación, personajes y política de renderizado. `build` verifica TypeScript y genera `dist/`. `preview` sirve esa compilación en [localhost:4174](http://localhost:4174).
+`test` ejecuta las pruebas de simulación, personajes, política de renderizado, respaldos y carga del guardado. `build` verifica TypeScript y genera `dist/`. `preview` sirve esa compilación en [localhost:4174](http://localhost:4174).
 
 El juego utiliza recursos locales: escena y personajes 3D, iconos y fuentes DM Sans/Playfair Display incluidas mediante `@fontsource`. El paquete nativo está preparado para funcionar sin conexión después de instalarse y no solicita recursos de Meshy ni Google Fonts durante la partida; falta comprobarlo en binarios instalados en dispositivos. La versión web necesita que el servidor local permanezca activo; no incluye todavía un service worker para instalarla como PWA sin conexión. `npm ci` necesita acceso a Internet cuando las dependencias no estén en caché.
 
@@ -78,7 +86,7 @@ npm run mobile:sync
 npx cap doctor
 ```
 
-La sincronización construye primero la web y copia `dist/` a ambos proyectos; también actualiza sus plugins. Repetirla después de cambiar código, recursos o plugins. No volver a ejecutar `cap add` sobre estas carpetas.
+La sincronización construye primero la web y copia `dist/` a ambos proyectos; también actualiza sus plugins. En v11 quedaron sincronizados **Filesystem 8.1.5, Share 8.0.3 y Preferences 8.0.1**. Repetirla después de cambiar código, recursos o plugins. No volver a ejecutar `cap add` sobre estas carpetas.
 
 ## Android
 

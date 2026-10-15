@@ -14,6 +14,6 @@ export function settingsPanel(settings:VisualSettings,systemReduced:boolean,save
     ${systemReduced?'<p class="settings-note">Tu dispositivo tiene activada la reducción de movimiento. El juego también respeta esa preferencia.</p>':''}
     <p class="settings-note">El escenario se pausa cuando abrís un panel, el taller o dejás de verlo. Al volver, la partida continúa en la misma jornada.</p>
     <p class="settings-save" role="status">${saveWarning||'Las preferencias se guardan en este dispositivo.'}</p>
-    <button type="button" class="outline-button" data-open="help">Cómo jugar</button>
+    <div class="settings-links"><button type="button" class="primary-button" data-open="respaldos">Partidas y respaldos</button><button type="button" class="outline-button" data-open="help">Cómo jugar</button></div>
   </section>`;
 }

@@ -1,8 +1,30 @@
 # Director de Murga
 
-Documento de diseño del prototipo. La revisión vigente es **v10, del 14 de octubre de 2026**: añade ajustes visuales y gestión del renderizado sobre la campaña de v9. **El esquema de simulación y la clave de guardado siguen en v9**; las preferencias del dispositivo se almacenan aparte. Las secciones de versiones anteriores describen la evolución del juego y no sustituyen el estado actual. Los valores de balance están en `src/simulation.ts` y las prioridades de beta, en [BETA-PENDIENTES.md](BETA-PENDIENTES.md).
+Documento de diseño del prototipo. La revisión vigente es **v11, del 15 de octubre de 2026**: añade respaldos de partida y recuperación sobre los ajustes visuales de v10 y la campaña de v9. **El esquema de simulación y la clave de guardado siguen en v9**; las preferencias del dispositivo se almacenan aparte. Las secciones de versiones anteriores describen la evolución del juego y no sustituyen el estado actual. Los valores de balance están en `src/simulation.ts` y las prioridades de beta, en [BETA-PENDIENTES.md](BETA-PENDIENTES.md).
 
-## Revisión vigente v10: ajustes para jugar en móvil
+## Revisión vigente v11: conservar y trasladar la partida
+
+### Elegir, revisar y confirmar
+
+**Ajustes → Partidas y respaldos** muestra la murga actual y permite exportar, seleccionar un archivo o consultar la copia anterior. La vista previa presenta únicamente identidad, temporada, jornada, caja, cantidad de integrantes y fecha del respaldo; no revela habilidades ni puntajes reservados. Elegir o cancelar un archivo solo modifica esa selección. **Restaurar esta partida** es la confirmación que autoriza reemplazar campaña y apariencias. Antes se conserva la partida visible como copia previa; volver a ella exige revisar y confirmar otra restauración.
+
+El archivo JSON tiene formato `director-de-murga-backup` y versión **1**, con `exportedAt`, `campaign` y `cosmetics`. El tamaño máximo es **5 MiB de UTF-8**. Se validan estructura, fecha, versión, campaña y opciones cosméticas antes de aceptar la selección. Las campañas antiguas compatibles pasan por el migrador existente y resultan en v9. El archivo contiene los datos internos necesarios para continuar jugando; la vista previa no los expone. Las preferencias gráficas quedan fuera del respaldo y se conservan en el dispositivo receptor.
+
+### Guardado y recuperación
+
+Mientras se procesa una operación se bloquean acciones y cierres del panel. Antes de restaurar se esperan las colas de campaña y apariencias. Un registro de recuperación, independiente del guardado de campaña, conserva los valores anteriores y distingue dos fases: `prepared`, cuyas escrituras incompletas se revierten, y `committed`, que conserva la restauración aplicada y solo requiere borrar ese registro. Cada escritura se comprueba mediante lectura. Al iniciar, la recuperación ocurre antes de cargar la campaña.
+
+El estado en memoria se reemplaza únicamente tras el resultado `applied`. Si falla terminar la limpieza de una restauración ya confirmada, se reintenta; si sigue fallando, el juego explica que la partida ya fue restaurada, bloquea nuevas acciones y permite exportar lo visible antes de reintentar. Un fallo al leer la campaña o las apariencias durante el arranque detiene la carga: no se trata como ausencia de guardado ni habilita una campaña inicial que pueda sobrescribirlo.
+
+### Transferencia y verificación
+
+En web se solicita la descarga de un archivo; en nativo se escribe una copia temporal en caché con Filesystem y se abre el menú de Share. Son mecanismos de entrega al usuario, sin sincronización en la nube. Cerrar el menú de compartir no garantiza que se haya guardado el archivo. La sincronización v11 incluye Filesystem 8.1.5, Share 8.0.3 y Preferences 8.0.1.
+
+La suite alcanzó **109 pruebas aprobadas**, con 15 nuevas de respaldo/recuperación y 9 de carga; también pasaron compilación web y sincronización Android/iOS. El panel se inspeccionó en escritorio y a 390 × 844 CSS px, sin desborde y con controles de 46/48 px. La prueba de selección de archivo en Chrome quedó impedida porque la extensión denegó `setFiles` sin permiso de acceso a URL de archivo. No se eludió el bloqueo ni se ejecutó la importación por interfaz. La exportación solicitó una descarga sin error de aplicación, pero venció la espera de su evento y no se confirmó el archivo mediante la herramienta.
+
+Por ello sigue pendiente el recorrido completo exportar → conservar archivo → importar → confirmar → recargar → volver a la copia previa. Siete comprobaciones simuladas de exportación nativa se registran aparte, sin sumarlas a las 109 ni presentarlas como prueba de un teléfono. No hay APK/IPA compilado o ejecutado en esta entrega. El detalle corresponde a [QA-RESPALDOS-V11.md](QA-RESPALDOS-V11.md).
+
+## Base funcional v10: ajustes para jugar en móvil
 
 El jugador puede elegir calidad para escenario y taller: Ahorro limita a 20 FPS y densidad de píxel máxima 1, sin sombras; Equilibrado limita a 30 FPS y densidad 1,25, con sombras; Más fluidez limita a 60 FPS y densidad 1,5. La densidad nunca se fuerza por encima de la del dispositivo. Son topes, no garantías de FPS ni de ahorro de batería.
 
