@@ -96,10 +96,10 @@ export class MilaWardrobe {
 export async function loadMilaWardrobe(selection: WardrobeSelection): Promise<MilaWardrobe> {
   const loader = new GLTFLoader();
   const results = await Promise.allSettled([
-    loader.loadAsync('/models/components/mila-modular.glb'),
-    loader.loadAsync('/models/wardrobe/traje-esmeralda-01.glb'),
-    loader.loadAsync('/models/wardrobe/sombrero-esmeralda-01.glb'),
-    new THREE.TextureLoader().loadAsync('/models/wardrobe/maquillaje-blanco-rulos-01.webp'),
+    loader.loadAsync('models/components/mila-modular.glb'),
+    loader.loadAsync('models/wardrobe/traje-esmeralda-01.glb'),
+    loader.loadAsync('models/wardrobe/sombrero-esmeralda-01.glb'),
+    new THREE.TextureLoader().loadAsync('models/wardrobe/maquillaje-blanco-rulos-01.webp'),
   ] as const);
   const roots: THREE.Group[] = [], textures: THREE.Texture[] = [];
   results.forEach(result => {
